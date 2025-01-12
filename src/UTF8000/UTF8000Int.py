@@ -15,7 +15,7 @@ class UTF8000Int:
         ret = 0
         content_bytes = (b for b in self.utf_8000_bytes if b.is_content_byte)
         for content_byte in content_bytes:
-            ret <<= content_byte.n_content_bits
+            ret <<= content_byte.n_bits_content_total
             ret += content_byte.content
         return ret
 

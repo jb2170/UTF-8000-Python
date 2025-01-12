@@ -181,50 +181,13 @@ class UTF8000Byte:
 
         return ret
 
-    def debug_str(self) -> str:
-        if self.is_continuation_byte:
-            n_continuation_prefix_bits = 2
-        else:
-            n_continuation_prefix_bits = 0
-
-        if self.is_content_byte:
-            n_content_bits = self.n_content_bits
-        else:
-            n_content_bits = 0
-
-        RESET = "\x1b[0m"
-        RED   = "\x1b[31m"
-        GREEN = "\x1b[32m"
-        BLUE  = "\x1b[34m"
-        s = str(self)
-        binary_prefix = s[:2]
-        continuation_prefix = GREEN + s[2:2+n_continuation_prefix_bits] + RESET
-        start_bits          = RED   + s[2+n_continuation_prefix_bits:10 - n_content_bits] + RESET
-        content_bits        = BLUE  + s[10 - n_content_bits:] + RESET
-
-        return binary_prefix + continuation_prefix + start_bits + content_bits
-
     @property
     def is_ascii(self) -> bool:
-        return byte_is_ascii(self.c)
-
-    @property
-    def n_content_bits(self) -> int:
-        if not self.is_content_byte:
-            raise ValueError
-
-        if not self.is_continuation_byte:
-            idx_0 = byte_idx_0(self.c)
-            return (8 - 1 - idx_0)
-        elif not self.is_start_byte:
-            return 6
-        else:
-            idx_0_content = byte_continuation_content_idx_0(self.c)
-            return (6 - 1 - idx_0_content)
+        return self.n_bits_content_total == 7
 
     @property
     def content(self) -> int:
-        content_mask = (1 << self.n_content_bits) - 1
+        content_mask = fill_n_bits_shifted_by_m(self.n_bits_content_total, 0)
 
         return self.c & content_mask
 
