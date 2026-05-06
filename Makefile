@@ -4,7 +4,11 @@ all:
 .PHONY: venv
 venv:
 	  /usr/bin/python -m venv venv
-	./venv/bin/python -m pip install -e .
+	./venv/bin/python -m pip install -e '.[test]'
+
+.PHONY: test
+test:
+	./venv/bin/pytest
 
 .PHONY: build
 build:
