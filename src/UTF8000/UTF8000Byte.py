@@ -29,6 +29,17 @@ UNICODE_SURROGATE_HIGH_SUP = 0xDC00
 UNICODE_SURROGATE_LOW_MIN  = 0xDC00
 UNICODE_SURROGATE_LOW_SUP  = 0xE000
 
+def ceil_div(x: int, y: int) -> int:
+    return -(x // -y)
+
+def fill_n_bits_shifted_by_m(n: int, m: int) -> int:
+    pass         # example with n == 3, m == 4
+    ret = 1      # 0b00000001
+    ret <<= n    # 0b00001000
+    ret -= 1     # 0b00000111
+    ret <<= m    # 0b01110000
+    return ret
+
 def byte_is_ascii(c: int) -> bool:
     return c & ASCII_PREFIX_MASK == ASCII_PREFIX
 
