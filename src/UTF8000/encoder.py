@@ -3,6 +3,7 @@ from .UTF8000Byte import FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREF
 
 def empty_first_byte(n_bytes: int) -> int:
     # do not call for ASCII ie n_bytes == 1
+    # XXX get rid of this function; make it inline in `encode()`
 
     return fill_n_bits_shifted_by_m(n_bytes, 8 - n_bytes)
 
@@ -25,7 +26,7 @@ def encode(x: int, signed: bool = False) -> bytes:
 
         return bytes(ret_ints)
 
-    # UTF-8
+    # UTF-8000
 
     contents: list[int] = []
     y: int = x
@@ -45,47 +46,15 @@ def encode(x: int, signed: bool = False) -> bytes:
     if n_utf_8000_bytes_needed < 8:
         # single start byte
 
-        first_byte = empty_first_byte(n_utf_8000_bytes_needed)
+        final_start_byte = empty_first_byte(n_utf_8000_bytes_needed)
+        # the first start byte is also the final in this case, the one and only!
 
-        if len(contents) == n_utf_8000_bytes_needed:
-            # if True, then the content begins in the first-and-final start byte, in particular
-            # meaning the first 1 bit of the mandatory content bits
-            # is in the first-and-final start byte
-            #
-            # eg    0b110IIIIy (0b10yyyyyy)
-            #       the mandatory content bits are contained to
-            #       the first-and-final start byte
-            #
-            # eg    0b11110III (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
-            #       the mandatory content bits start in
-            #       the first-and-final start byte
-            #       and continue into the first non-start byte
-            #       with the first 1 bit in the former byte
-            #
-            # if False, then `len(contents) == n_utf_8000_bytes_needed - 1`,
-            # meaning the content may or may not begin in the first-and-final start byte, in particular
-            # meaning the first 1 bit of the mandatory content bits
-            # is in the first non-start byte
-            #
-            # eg    0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
-            #       the mandatory content bits are contained to
-            #       the first non-start byte
-            #
-            # eg    0b11110QQQ (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
-            #       the mandatory content bits start in
-            #       the first-and-final start byte
-            #       and continue into the first non-start byte
-            #       with the first 1 bit in the latter byte
-            #
-            first_byte_contents = contents.pop(0)
-            first_byte |= first_byte_contents
-
-        ret_ints.append(first_byte)
+        n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed
     else:
         # multiple start bytes, the power of UTF-8000!
 
         first_byte = FIRST_BYTE_FULL
-        # first byte is always all 1s when n_bytes >= 8
+        # the first start byte is always all 1s when n_bytes >= 8
         # may as well use this constant instead of `empty_first_byte(8)`
 
         ret_ints.append(first_byte)
@@ -111,40 +80,52 @@ def encode(x: int, signed: bool = False) -> bytes:
         # and +1 for the final start byte, which contains the terminating
         # 0 bit and may or may not contain content
 
-        if len(contents) == n_bytes_pure_content_and_final_start:
-            # if True, then the content begins in the final start byte, in particular
-            # meaning the first 1 bit of the mandatory content bits
-            # is in the final start byte
-            #
-            # eg    0b100IIIII (0b10yyyyyy ...)
-            #       the mandatory content bits are contained to
-            #       the final start byte
-            #
-            # eg    0b10110III (0b10IIyyyy 0b10yyyyyy ...)
-            #       the mandatory content bits start in
-            #       the final start byte
-            #       and continue into the first non-start byte
-            #       with the first 1 bit in the former byte
-            #
-            # if False, then `len(contents) == n_bytes_pure_content_and_final_start - 1`,
-            # meaning the content may or may not begin in the final start byte, in particular
-            # meaning the first 1 bit of the mandatory content bits
-            # is in the first non-start byte
-            #
-            # eg    0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
-            #       the mandatory content bits are contained to
-            #       the first non-start byte
-            #
-            # eg    0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
-            #       the mandatory content bits start in
-            #       the final start byte
-            #       and continue into the first non-start byte
-            #       with the first 1 bit in the latter byte
-            #
-            final_start_byte_contents = contents.pop(0)
-            final_start_byte |= final_start_byte_contents
+    if len(contents) == n_bytes_pure_content_and_final_start:
+        #
+        # if True,
+        # then `len(contents) == n_bytes_pure_content_and_final_start`,
+        # meaning the content !does! begin in the final start byte,
+        # and certainly meaning the first 1 bit of the mandatory content bits
+        # is in the <<final start byte<<
+        #
+        # Examples of the mandatory content bits
+        # contained together in the <<final start byte<<
+        #
+        # UTF-8       0b110IIIIy (0b10yyyyyy)
+        # UTF-8000    0b100IIIII (0b10yyyyyy ...)
+        #
+        # Examples of the mandatory content bits straddled across two bytes,
+        # starting in the final start byte and continuing into
+        # the first non-start byte,
+        # with the first 1 bit in the <<final start byte<<
+        #
+        # UTF-8       0b11110III (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+        # UTF-8000    0b10110III (0b10IIyyyy 0b10yyyyyy ...)
+        #
+        # if False,
+        # then `len(contents) == n_bytes_pure_content_and_final_start - 1`,
+        # meaning the content !may or may not! begin in the final start byte,
+        # and certainly meaning the first 1 bit of the mandatory content bits
+        # is in the >>first non-start byte>>
+        #
+        # Examples of the mandatory content bits
+        # contained together in the >>first non-start byte>>
+        #
+        # UTF-8       0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
+        # UTF-8000    0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
+        #
+        # Examples of the mandatory content bits straddled across two bytes,
+        # starting in the final start byte and continuing into
+        # the first non-start byte,
+        # with the first 1 bit in the >>first non-start byte>>
+        #
+        # UTF-8       0b11110QQQ (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+        # UTF-8000    0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
+        #
+        final_start_byte_contents = contents.pop(0)
+        final_start_byte |= final_start_byte_contents
 
-        ret_ints.append(final_start_byte)
+    ret_ints.append(final_start_byte)
 
     for non_start_byte_contents in contents:
         non_start_byte = 0b10000000 | non_start_byte_contents
