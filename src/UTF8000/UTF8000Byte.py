@@ -123,3 +123,54 @@ class UTF8000Byte:
         content_mask = (1 << self.n_content_bits) - 1
 
         return self.c & content_mask
+
+    @classmethod
+    def ASCII(cls, c: int):
+        """
+        Return an ASCII byte '0b0xxxxxxx'.
+        """
+        return cls(
+            c,
+            is_start_byte = True,
+            is_continuation_byte = False,
+            is_content_byte = True
+        )
+
+    @classmethod
+    def OnesFilledFirstStartByte(cls):
+        """
+        Return a '0b11111111' filled up first start byte.
+        """
+        return cls(
+            FIRST_BYTE_FULL,
+            is_start_byte = True,
+            is_continuation_byte = False,
+            is_content_byte = False
+        )
+
+    @classmethod
+    def OnesFilledContinuationStartByte(cls):
+        """
+        Return a '0b10111111' filled up continuation start byte.
+        """
+        return cls(
+            CONTINUATION_FILLED,
+            is_start_byte = True,
+            is_continuation_byte = True,
+            is_content_byte = False
+        )
+
+    @classmethod
+    def ContinuationNonStartByte(cls, c):
+        """
+        Return a '0b10yyyyyy' continuation byte that is not a start byte.
+
+        `c` is the whole octet, including the upper '10' bits,
+        not just the hextet of content.
+        """
+        return cls(
+            c,
+            is_start_byte = False,
+            is_continuation_byte = True,
+            is_content_byte = True
+        )

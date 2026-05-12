@@ -174,12 +174,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
     ret_ints: list[UTF8000Byte] = []
 
     if x < 0x80:
-        ret_ints.append(UTF8000Byte(
-            x,
-            is_start_byte = True,
-            is_continuation_byte = False,
-            is_content_byte = True
-        ))
+        ret_ints.append(UTF8000Byte.ASCII(x))
 
         return tuple(ret_ints)
 
@@ -212,12 +207,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed
     else:
-        first_byte = UTF8000Byte(
-            FIRST_BYTE_FULL,
-            is_start_byte = True,
-            is_continuation_byte = False,
-            is_content_byte = False
-        )
+        first_byte = UTF8000Byte.OnesFilledFirstStartByte()
 
         ret_ints.append(first_byte)
 
@@ -226,12 +216,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, 6)
 
         for _ in range(n_filled_continuation_start_bytes):
-            ret_ints.append(UTF8000Byte(
-                CONTINUATION_FILLED,
-                is_start_byte = True,
-                is_continuation_byte = True,
-                is_content_byte = False
-            ))
+            ret_ints.append(UTF8000Byte.OnesFilledContinuationStartByte())
 
         is_final_start_byte_a_continuation_byte = True
         is_final_start_byte_a_content_byte = n_ones_in_final_start_byte < 5
@@ -260,11 +245,6 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
     for non_start_byte_contents in contents:
         non_start_byte = 0b10000000 | non_start_byte_contents
-        ret_ints.append(UTF8000Byte(
-            non_start_byte,
-            is_start_byte = False,
-            is_continuation_byte = True,
-            is_content_byte = True
-        ))
+        ret_ints.append(UTF8000Byte.ContinuationNonStartByte(non_start_byte))
 
     return tuple(ret_ints)
