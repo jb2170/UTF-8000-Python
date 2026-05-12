@@ -94,7 +94,7 @@ def encode(x: int, signed: bool = False) -> bytes:
         # 0b100xxxxx 0b1010xxxx 0b10110xxx 0b101110xx 0b1011110x 0b10111110.
         # We fill its contents, if it has any, after this if-else block.
 
-        n_full_start_bytes = len(ret_ints)
+        n_full_start_bytes = 1 + n_filled_continuation_start_bytes # aka `len(ret_ints)`
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed - n_full_start_bytes
         # This is the number of bytes that are purely content, ie 0b10yyyyyy,
         # and +1 for the final start byte, which contains the terminating
@@ -244,7 +244,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
         final_start_byte = CONTINUATION_PREFIX | final_start_byte_start_bits
 
-        n_full_start_bytes = len(ret_ints)
+        n_full_start_bytes = 1 + n_filled_continuation_start_bytes # aka `len(ret_ints)`
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed - n_full_start_bytes
 
     if len(contents) == n_bytes_pure_content_and_final_start:
