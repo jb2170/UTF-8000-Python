@@ -65,10 +65,10 @@ def byte_continuation_content_idx_0(c: int) -> int:
 
 class UTF8000Byte:
     def __init__(self, c: int, *,
-            is_start_byte:        bool,
-            is_continuation_byte: bool,
-            is_content_byte:      bool,
-        ) -> None:
+        is_continuation_byte: bool,
+        is_start_byte:        bool,
+        is_content_byte:      bool,
+    ) -> None:
         self.c = c
         self.is_start_byte        = is_start_byte
         self.is_continuation_byte = is_continuation_byte
@@ -131,8 +131,8 @@ class UTF8000Byte:
         """
         return cls(
             c,
-            is_start_byte = True,
             is_continuation_byte = False,
+            is_start_byte = True,
             is_content_byte = True
         )
 
@@ -143,8 +143,8 @@ class UTF8000Byte:
         """
         return cls(
             FIRST_BYTE_FULL,
-            is_start_byte = True,
             is_continuation_byte = False,
+            is_start_byte = True,
             is_content_byte = False
         )
 
@@ -155,8 +155,8 @@ class UTF8000Byte:
         """
         return cls(
             CONTINUATION_FILLED,
-            is_start_byte = True,
             is_continuation_byte = True,
+            is_start_byte = True,
             is_content_byte = False
         )
 
@@ -168,9 +168,12 @@ class UTF8000Byte:
         `c` is the whole octet, including the upper '10' bits,
         not just the hextet of content.
         """
+
+        # XXX how many mandatory
+
         return cls(
             c,
-            is_start_byte = False,
             is_continuation_byte = True,
+            is_start_byte = False,
             is_content_byte = True
         )

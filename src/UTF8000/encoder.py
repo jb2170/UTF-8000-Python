@@ -238,8 +238,8 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
     ret_ints.append(UTF8000Byte(
         final_start_byte,
-        is_start_byte = True,
         is_continuation_byte = is_final_start_byte_a_continuation_byte,
+        is_start_byte = True,
         is_content_byte = is_final_start_byte_a_content_byte
     ))
 

@@ -94,7 +94,7 @@ class UTF8000IncrementalDecoder:
             # when idx_0 == 8, this is 8 *so far!*
 
         is_content_byte = idx_0 < 7
-        parsed_bytes.append(UTF8000Byte(start_byte, is_start_byte = True, is_continuation_byte = False, is_content_byte = is_content_byte))
+        parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = False, is_start_byte = True, is_content_byte = is_content_byte))
 
         # multiple start bytes, the power of UTF-8000!
         if idx_0 == 8:
@@ -104,7 +104,7 @@ class UTF8000IncrementalDecoder:
                 n_bytes_expected += idx_0_content
 
                 is_content_byte = idx_0_content < 5
-                parsed_bytes.append(UTF8000Byte(start_byte, is_start_byte = True, is_continuation_byte = True, is_content_byte = is_content_byte))
+                parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = True, is_start_byte = True, is_content_byte = is_content_byte))
 
                 if idx_0_content != 6:
                     break
@@ -130,12 +130,12 @@ class UTF8000IncrementalDecoder:
             if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
                 self._on_error_overlong()
 
-            parsed_bytes.append(UTF8000Byte(continuation_byte, is_start_byte = False, is_continuation_byte = True, is_content_byte = True))
+            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
 
         # the rest of the continuation bytes
         while len(parsed_bytes) < n_bytes_expected:
             continuation_byte = yield from self._await_continuation_byte()
-            parsed_bytes.append(UTF8000Byte(continuation_byte, is_start_byte = False, is_continuation_byte = True, is_content_byte = True))
+            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
 
         return UTF8000Int(parsed_bytes)
 
