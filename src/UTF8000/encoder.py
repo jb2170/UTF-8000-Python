@@ -1,5 +1,5 @@
 from .UTF8000Int import UTF8000Int
-from .UTF8000Byte import FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, ceil_div, fill_n_bits_shifted_by_m
+from .UTF8000Byte import UTF8000Byte, FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, ceil_div, fill_n_bits_shifted_by_m
 
 def encode(x: int, signed: bool = False) -> bytes:
     """
@@ -157,3 +157,114 @@ def encode(x: int, signed: bool = False) -> bytes:
         ret_ints.append(non_start_byte)
 
     return bytes(ret_ints)
+
+def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
+    """
+    Encode an integer `x` into a tuple of `UTF8000Byte`s.
+    """
+
+    # See `encode` for full comments. There's no point repeating them here.
+
+    if signed:
+        raise NotImplementedError
+
+    if x < 0:
+        raise ValueError("Cannot encode negative number in unsigned mode")
+
+    ret_ints: list[UTF8000Byte] = []
+
+    if x < 0x80:
+        ret_ints.append(UTF8000Byte(
+            x,
+            is_start_byte = True,
+            is_continuation_byte = False,
+            is_content_byte = True
+        ))
+
+        return tuple(ret_ints)
+
+    # UTF-8000
+
+    contents: list[int] = []
+    y: int = x
+
+    while y > 0:
+        final_6_bits = y & (0b00111111)
+        contents.insert(0, final_6_bits)
+        y >>= 6
+
+    n_bits_content_highest_six = contents[0].bit_length()
+
+    n_bits_content_total = n_bits_content_highest_six + 6 * (len(contents) - 1)
+
+    n_utf_8000_bytes_needed = ceil_div(n_bits_content_total - 1, 5)
+
+    if n_utf_8000_bytes_needed < 8:
+        is_final_start_byte_a_continuation_byte = False
+        is_final_start_byte_a_content_byte = n_utf_8000_bytes_needed < 7
+        # For single start byte UTF-8000,
+        # if there are less than 7 UTF-8000 bytes needed in total,
+        # then there are less than 7 ones in the start sequence,
+        # thus there are less than 8 bits in the start sequence,
+        # thus there is space in the final start byte for content.
+
+        final_start_byte = fill_n_bits_shifted_by_m(n_utf_8000_bytes_needed, 8 - n_utf_8000_bytes_needed)
+
+        n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed
+    else:
+        first_byte = UTF8000Byte(
+            FIRST_BYTE_FULL,
+            is_start_byte = True,
+            is_continuation_byte = False,
+            is_content_byte = False
+        )
+
+        ret_ints.append(first_byte)
+
+        n_remaining_start_ones = n_utf_8000_bytes_needed - 8
+
+        n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, 6)
+
+        for _ in range(n_filled_continuation_start_bytes):
+            ret_ints.append(UTF8000Byte(
+                CONTINUATION_FILLED,
+                is_start_byte = True,
+                is_continuation_byte = True,
+                is_content_byte = False
+            ))
+
+        is_final_start_byte_a_continuation_byte = True
+        is_final_start_byte_a_content_byte = n_ones_in_final_start_byte < 5
+        # For multi start byte UTF-8000,
+        # if   there are less than 5 ones in the start sequence of the final start byte,
+        # then there are less than 6 bits in the start sequence of the final start byte,
+        # thus there are less than 8 bits used by the '10' continuation prefix and the start sequence bits,
+        # thus there is space in the final start byte for content.
+
+        final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
+        final_start_byte = CONTINUATION_PREFIX | final_start_byte_start_bits
+
+        n_full_start_bytes = len(ret_ints)
+        n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed - n_full_start_bytes
+
+    if len(contents) == n_bytes_pure_content_and_final_start:
+        final_start_byte_contents = contents.pop(0)
+        final_start_byte |= final_start_byte_contents
+
+    ret_ints.append(UTF8000Byte(
+        final_start_byte,
+        is_start_byte = True,
+        is_continuation_byte = is_final_start_byte_a_continuation_byte,
+        is_content_byte = is_final_start_byte_a_content_byte
+    ))
+
+    for non_start_byte_contents in contents:
+        non_start_byte = 0b10000000 | non_start_byte_contents
+        ret_ints.append(UTF8000Byte(
+            non_start_byte,
+            is_start_byte = False,
+            is_continuation_byte = True,
+            is_content_byte = True
+        ))
+
+    return tuple(ret_ints)
