@@ -1,12 +1,6 @@
 from .UTF8000Int import UTF8000Int
 from .UTF8000Byte import FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, ceil_div, fill_n_bits_shifted_by_m
 
-def empty_first_byte(n_bytes: int) -> int:
-    # do not call for ASCII ie n_bytes == 1
-    # XXX get rid of this function; make it inline in `encode()`
-
-    return fill_n_bits_shifted_by_m(n_bytes, 8 - n_bytes)
-
 def encode(x: int, signed: bool = False) -> bytes:
     if signed:
         # XXX implement signed behavior,
@@ -46,7 +40,7 @@ def encode(x: int, signed: bool = False) -> bytes:
     if n_utf_8000_bytes_needed < 8:
         # single start byte
 
-        final_start_byte = empty_first_byte(n_utf_8000_bytes_needed)
+        final_start_byte = fill_n_bits_shifted_by_m(n_utf_8000_bytes_needed, 8 - n_utf_8000_bytes_needed)
         # the first start byte is also the final in this case, the one and only!
 
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed
@@ -55,7 +49,6 @@ def encode(x: int, signed: bool = False) -> bytes:
 
         first_byte = FIRST_BYTE_FULL
         # the first start byte is always all 1s when n_bytes >= 8
-        # may as well use this constant instead of `empty_first_byte(8)`
 
         ret_ints.append(first_byte)
 
