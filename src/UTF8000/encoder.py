@@ -1,5 +1,5 @@
 from .UTF8000Int import UTF8000Int
-from .UTF8000Byte import UTF8000Byte, FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, ceil_div, fill_n_bits_shifted_by_m
+from .UTF8000Byte import UTF8000Byte, FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, CONTINUATION_CONTENT_MASK, ceil_div, fill_n_bits_shifted_by_m
 
 def encode(x: int, signed: bool = False) -> bytes:
     """
@@ -36,7 +36,7 @@ def encode(x: int, signed: bool = False) -> bytes:
         # The 'uppermost' bits from the final extraction will fit into the final start
         # byte that may have has less than 6 bits of content, don't worry; continue
         # reading on.
-        final_6_bits = y & (0b00111111)
+        final_6_bits = y & CONTINUATION_CONTENT_MASK
         contents.insert(0, final_6_bits)
         y >>= 6
 
@@ -153,7 +153,7 @@ def encode(x: int, signed: bool = False) -> bytes:
 
     for non_start_byte_contents in contents:
         # Add the purely-content continuation bytes.
-        non_start_byte = 0b10000000 | non_start_byte_contents
+        non_start_byte = CONTINUATION_PREFIX | non_start_byte_contents
         ret_ints.append(non_start_byte)
 
     return bytes(ret_ints)
@@ -184,7 +184,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
     y: int = x
 
     while y > 0:
-        final_6_bits = y & (0b00111111)
+        final_6_bits = y & CONTINUATION_CONTENT_MASK
         contents.insert(0, final_6_bits)
         y >>= 6
 
@@ -295,14 +295,14 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
     ))
 
     first_non_start_byte_contents = contents.pop(0)
-    first_non_start_byte = 0b10000000 | first_non_start_byte_contents
+    first_non_start_byte = CONTINUATION_PREFIX | first_non_start_byte_contents
     ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
         first_non_start_byte,
         n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
     ))
 
     for non_start_byte_contents in contents:
-        non_start_byte = 0b10000000 | non_start_byte_contents
+        non_start_byte = CONTINUATION_PREFIX | non_start_byte_contents
         ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
             non_start_byte,
             n_bits_content_mandatory = 0
