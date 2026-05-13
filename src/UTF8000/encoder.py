@@ -232,19 +232,80 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         n_full_start_bytes = 1 + n_filled_continuation_start_bytes # aka `len(ret_ints)`
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed - n_full_start_bytes
 
+    # Calculate how many mandatory content bits there are and where they are.
+    if n_utf_8000_bytes_needed == 2:
+        # We need to treat 2 byte UTF-8 as a special case, as it
+        # has only 4 mandatory content bits, not 5.
+        # This is because the jump from ASCII to 2-byte UTF-8 means
+        # we jump from 7 bits of content to 11, a gain of 4 bits of content,
+        # whereas with every next additional continuation byte jumping from
+        # k-byte UTF-8(000) to k+1-byte UTF-8(000) we gain 5 bits
+        # of content; +6 bits from the continuation byte, -1 from extending
+        # the start sequence bits by 1.
+        #
+        # It is also for this interesting reason why one will never
+        # see 0xC0 or 0xC1 in a valid UTF-8(000) stream, like ever!
+        first_non_start_byte_n_bits_content_mandatory = 0
+        final_start_byte_n_bits_content_mandatory     = 4
+        final_start_byte_n_bits_content_total         = 5
+    else:
+        # It's best to check these by inspection.
+        # > = final start
+        # < = first non-start
+        # n-bits  n-bytes   UTF-8000
+        #     11        2  >110IIIIx <10xxxxxx !special case handled above!
+        #
+        #     16        3  >1110IIII <10Ixxxxx  10xxxxxx
+        #     21        4  >11110III <10IIxxxx  10xxxxxx  10xxxxxx
+        #     26        5  >111110II <10IIIxxx  10xxxxxx  10xxxxxx ...
+        #     31        6  >1111110I <10IIIIxx  10xxxxxx  10xxxxxx ...
+        #     36        7  >11111110 <10IIIIIx  10xxxxxx  10xxxxxx ...
+        #     41        8   11111111 >100IIIII <10xxxxxx  10xxxxxx ...
+        #     46        9   11111111 >1010IIII <10Ixxxxx  10xxxxxx ...
+        #     51       10   11111111 >10110III <10IIxxxx  10xxxxxx ...
+        #     56       11   11111111 >101110II <10IIIxxx  10xxxxxx ...
+        #     61       12   11111111 >1011110I <10IIIIxx  10xxxxxx ...
+        #     66       13   11111111 >10111110 <10IIIIIx  10xxxxxx ...
+        #     71       14   11111111  10111111 >100IIIII <10xxxxxx ...
+        #     76       15   11111111  10111111 >1010IIII <10Ixxxxx ...
+        #     81       16   11111111  10111111 >10110III <10IIxxxx ...
+        #     86       17   11111111  10111111 >101110II <10IIIxxx ...
+        #     91       18   11111111  10111111 >1011110I <10IIIIxx ...
+        #     96       19   11111111  10111111 >10111110 <10IIIIIx ...
+        #    101       20   11111111  10111111  10111111 >100IIIII ...
+        #    ...      ...        ...       ...       ...       ... ...
+        #
+        # That should be enough of a sequence to spot the pattern, right?
+        #
+        first_non_start_byte_n_bits_content_mandatory = divmod(n_utf_8000_bytes_needed - 8, 6)[1]
+        final_start_byte_n_bits_content_mandatory     = 5 - first_non_start_byte_n_bits_content_mandatory
+        final_start_byte_n_bits_content_total         = final_start_byte_n_bits_content_mandatory
+
     if len(contents) == n_bytes_pure_content_and_final_start:
         final_start_byte_contents = contents.pop(0)
         final_start_byte |= final_start_byte_contents
 
     ret_ints.append(UTF8000Byte(
         final_start_byte,
-        is_continuation_byte = is_final_start_byte_a_continuation_byte,
-        is_start_byte = True,
-        is_content_byte = is_final_start_byte_a_content_byte
+        is_continuation_byte     = is_final_start_byte_a_continuation_byte,
+        is_start_byte            = True,
+        is_content_byte          = is_final_start_byte_a_content_byte,
+        n_bits_content_total     = final_start_byte_n_bits_content_total,
+        n_bits_content_mandatory = final_start_byte_n_bits_content_mandatory
+    ))
+
+    first_non_start_byte_contents = contents.pop(0)
+    first_non_start_byte = 0b10000000 | first_non_start_byte_contents
+    ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
+        first_non_start_byte,
+        n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
     ))
 
     for non_start_byte_contents in contents:
         non_start_byte = 0b10000000 | non_start_byte_contents
-        ret_ints.append(UTF8000Byte.ContinuationNonStartByte(non_start_byte))
+        ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
+            non_start_byte,
+            n_bits_content_mandatory = 0
+        ))
 
     return tuple(ret_ints)
