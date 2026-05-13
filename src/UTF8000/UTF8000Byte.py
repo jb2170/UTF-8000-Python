@@ -40,6 +40,15 @@ def fill_n_bits_shifted_by_m(n: int, m: int) -> int:
     ret <<= m    # 0b01110000
     return ret
 
+def extract_n_bits_at_m(x: int, n: int, m: int, downshift: bool = True):
+    pass                                  # example with n == 3, m == 4, downshift == True
+    ret = x                               # 0bABCDEFGH
+    mask = fill_n_bits_shifted_by_m(n, m) # 0b01110000
+    ret &= mask                           # 0b0BCD0000
+    if downshift:                         #
+        ret >>= m                         # 0b00000BCD
+    return ret
+
 def byte_is_ascii(c: int) -> bool:
     return c & ASCII_PREFIX_MASK == ASCII_PREFIX
 
@@ -83,6 +92,94 @@ class UTF8000Byte:
 
     def __str__(self) -> str:
         return f"0b{self.c:08b}"
+
+    def __format__(self, format_spec: str) -> str:
+        """
+        Format the byte to be human readable.
+
+        Format specifiers are comma-separated.
+
+        if 'x' or 'X' is passed then:
+            Format in hex.
+
+        elif 'b' or no presentation type is passed then:
+            Format in binary.
+
+            if 'color' is passed then:
+                Format in color
+
+        if '#' is passed then:
+            Prefix the string with the presentation type's prefix
+            ('0x', '0X', '0b', '0B')
+        """
+
+        format_spec_args = format_spec.split(",")
+        # primitive but enough
+
+        do_base_prefix = "#"     in format_spec_args
+        do_color       = "color" in format_spec_args
+
+        if 'x' in format_spec_args:
+            # Return hex digits.
+            base_prefix = "0x" if do_base_prefix else ""
+            return f"{base_prefix}{self.c:02x}"
+        elif 'X' in format_spec_args:
+            # Return HEX digits.
+            base_prefix = "0X" if do_base_prefix else ""
+            return f"{base_prefix}{self.c:02X}"
+
+        if 'B' in format_spec_args:
+            base_prefix = "0B" if do_base_prefix else ""
+        else:
+            base_prefix = "0b" if do_base_prefix else ""
+
+        if self.is_continuation_byte:
+            # The digits start with '10'.
+            n_bits_continuation_prefix = 2
+        else:
+            # This is the first byte of a UTF-8000 encoded int.
+            # The digits don't start with '10'.
+            n_bits_continuation_prefix = 0
+
+        n_bits_content_total     = self.n_bits_content_total
+        n_bits_content_mandatory = self.n_bits_content_mandatory
+        n_bits_content_optional  = n_bits_content_total - n_bits_content_mandatory
+        n_bits_start_sequence    = 8 - n_bits_continuation_prefix - n_bits_content_total
+
+        str_continuation_prefix = self._format_bit_field(
+            n_bits_continuation_prefix, 6,
+            color = "\x1b[34m", do_color = do_color
+        )
+        str_start_sequence_bits = self._format_bit_field(
+            n_bits_start_sequence, n_bits_content_total,
+            color = "\x1b[35m", do_color = do_color
+        )
+        str_content_mandatory = self._format_bit_field(
+            n_bits_content_mandatory, n_bits_content_optional,
+            color = "\x1b[1m", do_color = do_color
+        )
+        str_content_optional = self._format_bit_field(n_bits_content_optional, 0)
+
+        return f"{base_prefix}{str_continuation_prefix}{str_start_sequence_bits}{str_content_mandatory}{str_content_optional}"
+
+    def _format_bit_field(
+        self, width: int, offset: int,
+        *,
+        color: str = None, do_color: bool = False
+    ) -> str:
+        if width == 0:
+            # Normal string formatting of zero returns "0" but we want "".
+            return ""
+
+        data = extract_n_bits_at_m(self.c, width, offset)
+
+        ret = f"{data:0{width}b}"
+
+        if do_color:
+            CSI_RESET = "\x1b[0m"
+            ret = f"{color}{ret}{CSI_RESET}"
+
+        return ret
 
     def debug_str(self) -> str:
         if self.is_continuation_byte:
