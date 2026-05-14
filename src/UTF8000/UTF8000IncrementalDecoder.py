@@ -85,10 +85,19 @@ class UTF8000IncrementalDecoder:
         start_byte = yield from self._await_byte()
         idx_0 = byte_idx_0(start_byte)
 
-        if idx_0 == 1:
+        if idx_0 == 0:
+            #
+            # Treat ASCII as a special case.
+            # This makes it easier for us to write the decoder, and allows a 'fast path'.
+            # ASCII has no (need for) overlong checking, and by returning early
+            # before the overlong checking code we skip code that checks for multiple
+            # start bytes, and further continuation bytes.
+            #
+            parsed_bytes.append(UTF8000Byte.ASCII(start_byte))
+
+            return UTF8000Int(parsed_bytes)
+        elif idx_0 == 1:
             self._on_error_invalid_start_byte()
-        elif idx_0 == 0:
-            n_bytes_expected = 1
         else:
             n_bytes_expected = idx_0
             # when idx_0 == 8, this is 8 *so far!*
@@ -110,27 +119,26 @@ class UTF8000IncrementalDecoder:
                     break
 
         # overlong checking for non-ASCII
-        if idx_0 != 0:
-            if idx_0 == 2:
-                # special case: we're only checking for activity in the first *4* content bits gained from 1-byte (ASCII) to a 2-byte sequence,
-                # whereas every other n-byte sequence checks the first *5* content bits, since 5 bits are gained for every additional continuation byte
-                anti_overlong_check_mask_start        = 0b00011110
-                anti_overlong_check_mask_continuation = 0b00000000 # unused
-            else:
-                n_bits_overlong_check_continuation = divmod(n_bytes_expected - 2, 6)[1]
-                n_bits_overlong_check_start        = 5 - n_bits_overlong_check_continuation
-                # lower bits of start byte contents
-                anti_overlong_check_mask_start        = (1 << n_bits_overlong_check_start) - 1
-                # upper bits of continuation byte contents
-                anti_overlong_check_mask_continuation = ((1 << n_bits_overlong_check_continuation) - 1) << (6 - n_bits_overlong_check_continuation)
+        if idx_0 == 2:
+            # special case: we're only checking for activity in the first *4* content bits gained from 1-byte (ASCII) to a 2-byte sequence,
+            # whereas every other n-byte sequence checks the first *5* content bits, since 5 bits are gained for every additional continuation byte
+            anti_overlong_check_mask_start        = 0b00011110
+            anti_overlong_check_mask_continuation = 0b00000000 # unused
+        else:
+            n_bits_overlong_check_continuation = divmod(n_bytes_expected - 2, 6)[1]
+            n_bits_overlong_check_start        = 5 - n_bits_overlong_check_continuation
+            # lower bits of start byte contents
+            anti_overlong_check_mask_start        = (1 << n_bits_overlong_check_start) - 1
+            # upper bits of continuation byte contents
+            anti_overlong_check_mask_continuation = ((1 << n_bits_overlong_check_continuation) - 1) << (6 - n_bits_overlong_check_continuation)
 
-            continuation_byte = yield from self._await_continuation_byte()
+        continuation_byte = yield from self._await_continuation_byte()
 
-            # at this point `start_byte` is the last start byte
-            if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
-                self._on_error_overlong()
+        # at this point `start_byte` is the last start byte
+        if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
+            self._on_error_overlong()
 
-            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
+        parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
 
         # the rest of the continuation bytes
         while len(parsed_bytes) < n_bytes_expected:
