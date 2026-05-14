@@ -111,16 +111,16 @@ def encode(x: int, signed: bool = False) -> bytes:
         # Examples of the mandatory content bits
         # contained together in the <<final start byte<<
         #
-        # UTF-8       0b110IIIIy (0b10yyyyyy)
-        # UTF-8000    0b100IIIII (0b10yyyyyy ...)
+        # UTF-8           0b110IIIIy (0b10yyyyyy)        2 byte UTF-8 only
+        # UTF-8000    ... 0b100IIIII (0b10yyyyyy ...)
         #
         # Examples of the mandatory content bits straddled across two bytes,
         # starting in the final start byte and continuing into
         # the first non-start byte,
         # with the first 1 bit in the <<final start byte<<
         #
-        # UTF-8       0b11110QII (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
-        # UTF-8000    0b10110III (0b10IIyyyy 0b10yyyyyy ...)
+        # UTF-8           0b11110QII (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+        # UTF-8000    ... 0b10110III (0b10IIyyyy 0b10yyyyyy ...)
         #
         # if False,
         # then `len(contents) == n_bytes_pure_content_and_final_start - 1`,
@@ -131,19 +131,17 @@ def encode(x: int, signed: bool = False) -> bytes:
         # Examples of the mandatory content bits
         # contained together in the >>first non-start byte>>
         #
-        # UTF-8*      0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
-        # UTF-8000    0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
-        #
-        # *technically not UTF-8 since UTF-8 is restricted to 4 bytes,
-        # but you know what I mean: <8-byte UTF-8000.
+        # UTF-8           Not possible for 2 and 3 and 4 byte UTF-8
+        # UTF-8000        0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
+        # UTF-8000    ... 0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
         #
         # Examples of the mandatory content bits straddled across two bytes,
         # starting in the final start byte and continuing into
         # the first non-start byte,
         # with the first 1 bit in the >>first non-start byte>>
         #
-        # UTF-8       0b11110QQQ (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
-        # UTF-8000    0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
+        # UTF-8           0b11110QQQ (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+        # UTF-8000    ... 0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
         #
         final_start_byte_contents = contents.pop(0)
         final_start_byte |= final_start_byte_contents
