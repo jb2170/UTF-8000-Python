@@ -137,7 +137,7 @@ class UTF8000IncrementalDecoder:
 
             if idx_0 != 8:
                 is_final_start_byte_a_continuation_byte = False
-                n_bits_content_final_start_byte = 7 - idx_0
+                final_start_byte_n_bits_content = 7 - idx_0
             else:
                 parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
 
@@ -154,9 +154,9 @@ class UTF8000IncrementalDecoder:
                     else:
                         parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
 
-                n_bits_content_final_start_byte = 5 - idx_0_content
+                final_start_byte_n_bits_content = 5 - idx_0_content
 
-            first_non_start_byte_n_bits_content_mandatory = 5 - n_bits_content_final_start_byte
+            first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
 
             first_non_start_byte = yield from self._await_continuation_byte()
 
@@ -178,7 +178,7 @@ class UTF8000IncrementalDecoder:
             # remote end has sent a byte and they know they've messed up and stay silent
             # from here on out.
             #
-            mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[n_bits_content_final_start_byte]
+            mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[final_start_byte_n_bits_content]
             if not (start_byte & mask_start or first_non_start_byte & mask_non_start):
                 self._on_error_overlong()
 
@@ -186,9 +186,9 @@ class UTF8000IncrementalDecoder:
                 start_byte,
                 is_continuation_byte     = is_final_start_byte_a_continuation_byte,
                 is_start_byte            = True,
-                is_content_byte          = n_bits_content_final_start_byte > 0,
-                n_bits_content_total     = n_bits_content_final_start_byte,
-                n_bits_content_mandatory = n_bits_content_final_start_byte
+                is_content_byte          = final_start_byte_n_bits_content > 0,
+                n_bits_content_total     = final_start_byte_n_bits_content,
+                n_bits_content_mandatory = final_start_byte_n_bits_content
             ))
 
             parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
