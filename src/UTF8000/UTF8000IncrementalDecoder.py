@@ -135,21 +135,26 @@ class UTF8000IncrementalDecoder:
             n_bytes_expected = idx_0
             # when idx_0 == 8, this is 8 *so far!*
 
-            is_content_byte = idx_0 < 7
-            parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = False, is_start_byte = True, is_content_byte = is_content_byte))
+            if idx_0 != 8:
+                is_final_start_byte_a_continuation_byte = False
+                n_bits_content_final_start_byte = 7 - idx_0
+            else:
+                parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
 
-            # multiple start bytes, the power of UTF-8000!
-            if idx_0 == 8:
+                is_final_start_byte_a_continuation_byte = True
+
+                # multiple start bytes, the power of UTF-8000!
                 while True:
                     start_byte = yield from self._await_continuation_byte()
                     idx_0_content = byte_continuation_content_idx_0(start_byte)
                     n_bytes_expected += idx_0_content
 
-                    is_content_byte = idx_0_content < 5
-                    parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = True, is_start_byte = True, is_content_byte = is_content_byte))
-
                     if idx_0_content != 6:
                         break
+                    else:
+                        parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
+
+                n_bits_content_final_start_byte = 5 - idx_0_content
 
             # overlong checking
             n_bits_overlong_check_continuation = divmod(n_bytes_expected - 2, 6)[1]
@@ -164,6 +169,15 @@ class UTF8000IncrementalDecoder:
             # at this point `start_byte` is the last start byte
             if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
                 self._on_error_overlong()
+
+            parsed_bytes.append(UTF8000Byte(
+                start_byte,
+                is_continuation_byte     = is_final_start_byte_a_continuation_byte,
+                is_start_byte            = True,
+                is_content_byte          = n_bits_content_final_start_byte > 0,
+                n_bits_content_total     = n_bits_content_final_start_byte,
+                n_bits_content_mandatory = n_bits_content_final_start_byte
+            ))
 
             parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
 
