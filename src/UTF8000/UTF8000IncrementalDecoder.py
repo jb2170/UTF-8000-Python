@@ -38,8 +38,15 @@ class UTF8000IncrementalDecoder:
     def _await_continuation_byte(self) -> Generator[None, None, int]:
         ret = yield from self._await_byte()
         if not byte_is_continuation(ret):
+            self._unpop_byte(ret)
             self._on_error_invalid_continuation_byte()
         return ret
+
+    def _unpop_bytes(self, b: bytes) -> None:
+        self._bytes_buffer = b + self._bytes_buffer
+
+    def _unpop_byte(self, c: int) -> None:
+        self._unpop_bytes(bytes((c,)))
 
     def _on_error(self, error_message: str) -> UTF8000Byte:
         raise ValueError(error_message)
@@ -49,7 +56,9 @@ class UTF8000IncrementalDecoder:
         self._on_error("Invalid start byte: continuation byte detected")
 
     def _on_error_invalid_continuation_byte(self) -> None:
-        # XXX TODO 101: should we un-pop this (start) byte so further decodings can continue, and return a replacement character?
+        # XXX TODO 101: should we create / raise a ReplacementCharacterException?
+        #               thus should we be calling return on the `_on_error`
+        #               functions instead of just calling them?
         self._on_error("Not a continuation byte prefix")
 
     def _on_error_overlong(self) -> None:
