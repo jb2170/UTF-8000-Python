@@ -280,6 +280,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         first_non_start_byte_n_bits_content_mandatory = divmod(n_utf_8000_bytes_needed - 8, 6)[1]
         final_start_byte_n_bits_content_mandatory     = 5 - first_non_start_byte_n_bits_content_mandatory
         final_start_byte_n_bits_content_total         = final_start_byte_n_bits_content_mandatory
+        # XXX see decoder on how we can remove this divmod and just use `n_ones_in_final_start_byte`
 
     if len(contents) == n_bytes_pure_content_and_final_start:
         final_start_byte_contents = contents.pop(0)

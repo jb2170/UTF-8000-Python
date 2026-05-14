@@ -16,6 +16,21 @@ FIRST_BYTE_FULL = 0b11111111
 
 OVERLONG_MASK_2_BYTE = 0b00011110
 
+# These masks are ordered such that the i'th one corresponds with
+# the final start byte containing i bits of content.
+# We used to calculate these on-the-fly in the decoder, but it's much
+# better to have them static like this. In particular if we were to implement
+# this decoder in C, these would maybe be shoved inside the decoder function
+# for even better performance.
+OVERLONG_MASKS_N_BYTE = (
+    (0b00000000, 0b00111110),
+    (0b00000001, 0b00111100),
+    (0b00000011, 0b00111000),
+    (0b00000111, 0b00110000),
+    (0b00001111, 0b00100000),
+    (0b00011111, 0b00000000),
+)
+
 # MIN = minimum
 # SUP = supremum
 UNICODE_MIN = 0x0

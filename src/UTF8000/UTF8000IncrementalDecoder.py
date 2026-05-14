@@ -1,6 +1,6 @@
 from typing import Generator
 
-from .UTF8000Byte import UTF8000Byte, byte_is_continuation, byte_idx_0, byte_continuation_content_idx_0, OVERLONG_MASK_2_BYTE
+from .UTF8000Byte import UTF8000Byte, byte_is_continuation, byte_idx_0, byte_continuation_content_idx_0, OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
 from .UTF8000Int import UTF8000Int
 
 class UTF8000IncrementalDecoder:
@@ -156,18 +156,30 @@ class UTF8000IncrementalDecoder:
 
                 n_bits_content_final_start_byte = 5 - idx_0_content
 
-            # overlong checking
-            n_bits_overlong_check_continuation = divmod(n_bytes_expected - 2, 6)[1]
-            n_bits_overlong_check_start        = 5 - n_bits_overlong_check_continuation
-            # lower bits of start byte contents
-            anti_overlong_check_mask_start        = (1 << n_bits_overlong_check_start) - 1
-            # upper bits of continuation byte contents
-            anti_overlong_check_mask_continuation = ((1 << n_bits_overlong_check_continuation) - 1) << (6 - n_bits_overlong_check_continuation)
+            first_non_start_byte_n_bits_content_mandatory = 5 - n_bits_content_final_start_byte
 
-            continuation_byte = yield from self._await_continuation_byte()
+            first_non_start_byte = yield from self._await_continuation_byte()
 
-            # at this point `start_byte` is the last start byte
-            if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
+            # Perform checking against overlong encodings.
+            # We forbid overlong encodings for two main reasons in my opinion:
+            #
+            # 1: Security.
+            #    To make sure 0b11100000 0b10000000 0b10000000 0b10000000
+            #    can't be decoded as codepoint 0, the null 'byte', which speciously
+            #    may lead to people carelessly passing such bytes to `strcpy(3)`
+            #    and friends, which at best leads to segfaults...
+            #
+            # 2: Uniqueness of encoding.
+            #    Every codepoint has one unique valid representation as UTF-8000 bytes.
+            #
+            # At this point `start_byte` is the final start byte.
+            # XXX If `n_bits_content_final_start_byte` is 5 then we could decide to
+            # check for overlong immediately, eg if we are parsing a stream and the
+            # remote end has sent a byte and they know they've messed up and stay silent
+            # from here on out.
+            #
+            mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[n_bits_content_final_start_byte]
+            if not (start_byte & mask_start or first_non_start_byte & mask_non_start):
                 self._on_error_overlong()
 
             parsed_bytes.append(UTF8000Byte(
@@ -179,7 +191,10 @@ class UTF8000IncrementalDecoder:
                 n_bits_content_mandatory = n_bits_content_final_start_byte
             ))
 
-            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
+            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByte(
+                first_non_start_byte,
+                n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
+            ))
 
         # the rest of the continuation bytes
         while len(parsed_bytes) < n_bytes_expected:
