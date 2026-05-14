@@ -1,6 +1,6 @@
 from typing import Generator
 
-from .UTF8000Byte import UTF8000Byte, byte_is_continuation, byte_idx_0, byte_continuation_content_idx_0
+from .UTF8000Byte import UTF8000Byte, byte_is_continuation, byte_idx_0, byte_continuation_content_idx_0, OVERLONG_MASK_2_BYTE
 from .UTF8000Int import UTF8000Int
 
 class UTF8000IncrementalDecoder:
@@ -98,33 +98,60 @@ class UTF8000IncrementalDecoder:
             return UTF8000Int(parsed_bytes)
         elif idx_0 == 1:
             self._on_error_invalid_start_byte()
+        elif idx_0 == 2:
+            #
+            # Treat two byte UTF-8 as a special case.
+            #
+            # Two byte UTF-8 has only 4 mandatory content bits to check
+            # against overlong encoding, unlike all other UTF-8000 sequences that
+            # have 5 to check. This is because the jump from ASCII to UTF-8 means
+            # we jump from 7 bits of content to 11, a gain of 4 bits of content,
+            # whereas with every next additional continuation byte jumping from
+            # k-byte UTF-8(000) to k+1-byte UTF-8(000) we gain 5 bits
+            # of content; +6 bits from the continuation byte, -1 from extending
+            # the start sequence bits by 1.
+            #
+            # Two byte UTF-8 has all 4 mandatory content bits in one byte,
+            # the start byte, unlike all other UTF-8000 sequences
+            # which may have them straddled across two bytes.
+            #
+            # Fun fact: It is for this reason why you will never see the bytes
+            #           0xC0 or 0xC1 in a valid UTF-8(000) stream, like anywhere!
+            #
+            if not start_byte & OVERLONG_MASK_2_BYTE:
+                self._on_error_overlong()
+
+            parsed_bytes.append(UTF8000Byte(
+                start_byte,
+                is_continuation_byte     = False,
+                is_start_byte            = True,
+                is_content_byte          = True,
+                n_bits_content_total     = 5,
+                n_bits_content_mandatory = 4
+            ))
+
+            n_bytes_expected = idx_0
         else:
             n_bytes_expected = idx_0
             # when idx_0 == 8, this is 8 *so far!*
 
-        is_content_byte = idx_0 < 7
-        parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = False, is_start_byte = True, is_content_byte = is_content_byte))
+            is_content_byte = idx_0 < 7
+            parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = False, is_start_byte = True, is_content_byte = is_content_byte))
 
-        # multiple start bytes, the power of UTF-8000!
-        if idx_0 == 8:
-            while True:
-                start_byte = yield from self._await_continuation_byte()
-                idx_0_content = byte_continuation_content_idx_0(start_byte)
-                n_bytes_expected += idx_0_content
+            # multiple start bytes, the power of UTF-8000!
+            if idx_0 == 8:
+                while True:
+                    start_byte = yield from self._await_continuation_byte()
+                    idx_0_content = byte_continuation_content_idx_0(start_byte)
+                    n_bytes_expected += idx_0_content
 
-                is_content_byte = idx_0_content < 5
-                parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = True, is_start_byte = True, is_content_byte = is_content_byte))
+                    is_content_byte = idx_0_content < 5
+                    parsed_bytes.append(UTF8000Byte(start_byte, is_continuation_byte = True, is_start_byte = True, is_content_byte = is_content_byte))
 
-                if idx_0_content != 6:
-                    break
+                    if idx_0_content != 6:
+                        break
 
-        # overlong checking for non-ASCII
-        if idx_0 == 2:
-            # special case: we're only checking for activity in the first *4* content bits gained from 1-byte (ASCII) to a 2-byte sequence,
-            # whereas every other n-byte sequence checks the first *5* content bits, since 5 bits are gained for every additional continuation byte
-            anti_overlong_check_mask_start        = 0b00011110
-            anti_overlong_check_mask_continuation = 0b00000000 # unused
-        else:
+            # overlong checking
             n_bits_overlong_check_continuation = divmod(n_bytes_expected - 2, 6)[1]
             n_bits_overlong_check_start        = 5 - n_bits_overlong_check_continuation
             # lower bits of start byte contents
@@ -132,13 +159,13 @@ class UTF8000IncrementalDecoder:
             # upper bits of continuation byte contents
             anti_overlong_check_mask_continuation = ((1 << n_bits_overlong_check_continuation) - 1) << (6 - n_bits_overlong_check_continuation)
 
-        continuation_byte = yield from self._await_continuation_byte()
+            continuation_byte = yield from self._await_continuation_byte()
 
-        # at this point `start_byte` is the last start byte
-        if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
-            self._on_error_overlong()
+            # at this point `start_byte` is the last start byte
+            if not (start_byte & anti_overlong_check_mask_start or continuation_byte & anti_overlong_check_mask_continuation):
+                self._on_error_overlong()
 
-        parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
+            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
 
         # the rest of the continuation bytes
         while len(parsed_bytes) < n_bytes_expected:
