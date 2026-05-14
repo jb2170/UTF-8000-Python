@@ -158,8 +158,6 @@ class UTF8000IncrementalDecoder:
 
             first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
 
-            first_non_start_byte = yield from self._await_continuation_byte()
-
             # Perform checking against overlong encodings.
             # We forbid overlong encodings for two main reasons in my opinion:
             #
@@ -173,14 +171,54 @@ class UTF8000IncrementalDecoder:
             #    Every codepoint has one unique valid representation as UTF-8000 bytes.
             #
             # At this point `start_byte` is the final start byte.
-            # XXX If `n_bits_content_final_start_byte` is 5 then we could decide to
-            # check for overlong immediately, eg if we are parsing a stream and the
-            # remote end has sent a byte and they know they've messed up and stay silent
-            # from here on out.
             #
             mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[final_start_byte_n_bits_content]
-            if not (start_byte & mask_start or first_non_start_byte & mask_non_start):
-                self._on_error_overlong()
+
+            if not mask_non_start:
+                # All of the mandatory content bits are
+                # contained together in the <<final start byte<<.
+                #
+                # We can immediately check for overlong encoding, and we don't
+                # need to check the first non-start byte.
+                #
+                # Examples:
+                # UTF-8           Only possible for 2 byte UTF-8
+                # UTF-8000    ... 0b100IIIII (0b10yyyyyy ...)
+                #
+                if not start_byte & mask_start:
+                    self._on_error_overlong()
+
+                first_non_start_byte = yield from self._await_continuation_byte()
+            else:
+                first_non_start_byte = yield from self._await_continuation_byte()
+
+                if not mask_start:
+                    # All of the mandatory content bits are
+                    # contained together in the >>first non-start byte>>.
+                    #
+                    # Examples:
+                    #
+                    # UTF-8           Not possible for UTF-8
+                    # UTF-8000        0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
+                    # UTF-8000    ... 0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
+                    #
+                    if not first_non_start_byte & mask_non_start:
+                        self._on_error_overlong()
+                else:
+                    # The mandatory content bits are
+                    # straddled across two bytes,
+                    # starting in the final start byte and continuing into
+                    # the first non-start byte.
+                    #
+                    # Examples:
+                    #
+                    # UTF-8           0b11110III (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+                    # UTF-8000    ... 0b10110III (0b10IIyyyy 0b10yyyyyy ...)
+                    # UTF-8000    ... 0b10110III (0b10QQyyyy 0b10yyyyyy ...)
+                    # UTF-8000    ... 0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
+                    #
+                    if not (start_byte & mask_start | first_non_start_byte & mask_non_start):
+                        self._on_error_overlong()
 
             parsed_bytes.append(UTF8000Byte(
                 start_byte,
