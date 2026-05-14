@@ -152,7 +152,8 @@ def encode(x: int, signed: bool = False) -> bytes:
     # Add the final start byte.
 
     for non_start_byte_contents in contents:
-        # Add the purely-content continuation bytes.
+        # Add the rest of the purely-content continuation bytes,
+        # which have no mandatory content.
         non_start_byte = CONTINUATION_PREFIX | non_start_byte_contents
         ret_ints.append(non_start_byte)
 
@@ -297,16 +298,15 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
     first_non_start_byte_contents = contents.pop(0)
     first_non_start_byte = CONTINUATION_PREFIX | first_non_start_byte_contents
-    ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
+    ret_ints.append(UTF8000Byte.ContinuationNonStartByteFirst(
         first_non_start_byte,
         n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
     ))
 
     for non_start_byte_contents in contents:
         non_start_byte = CONTINUATION_PREFIX | non_start_byte_contents
-        ret_ints.append(UTF8000Byte.ContinuationNonStartByte(
-            non_start_byte,
-            n_bits_content_mandatory = 0
+        ret_ints.append(UTF8000Byte.ContinuationNonStartByteNotFirst(
+            non_start_byte
         ))
 
     return tuple(ret_ints)

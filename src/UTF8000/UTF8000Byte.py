@@ -251,9 +251,11 @@ class UTF8000Byte:
         )
 
     @classmethod
-    def ContinuationNonStartByte(cls, c: int, *, n_bits_content_mandatory: int):
+    def ContinuationNonStartByteFirst(cls, c: int, *, n_bits_content_mandatory: int):
         """
-        Return a '0b10yyyyyy' continuation byte that is not a start byte.
+        Return a '0b10yyyyyy' continuation byte that is the first byte that
+        is not a start byte, and has the specified number of
+        mandatory content bits >= 0.
 
         `c` is the whole octet, including the upper '10' bits,
         not just the hextet of content.
@@ -266,4 +268,24 @@ class UTF8000Byte:
             is_content_byte = True,
             n_bits_content_total = 6,
             n_bits_content_mandatory = n_bits_content_mandatory
+        )
+
+    @classmethod
+    def ContinuationNonStartByteNotFirst(cls, c: int):
+        """
+        Return a '0b10yyyyyy' continuation byte that is not a start byte,
+        and is not the first non-start byte, ie this byte has
+        no mandatory content bits.
+
+        `c` is the whole octet, including the upper '10' bits,
+        not just the hextet of content.
+        """
+
+        return cls(
+            c,
+            is_continuation_byte = True,
+            is_start_byte = False,
+            is_content_byte = True,
+            n_bits_content_total = 6,
+            n_bits_content_mandatory = 0
         )

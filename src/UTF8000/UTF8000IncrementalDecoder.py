@@ -191,15 +191,18 @@ class UTF8000IncrementalDecoder:
                 n_bits_content_mandatory = n_bits_content_final_start_byte
             ))
 
-            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByte(
+            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
                 first_non_start_byte,
                 n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
             ))
 
-        # the rest of the continuation bytes
         while len(parsed_bytes) < n_bytes_expected:
+            # Add the rest of the purely-content continuation bytes,
+            # which have no mandatory content.
             continuation_byte = yield from self._await_continuation_byte()
-            parsed_bytes.append(UTF8000Byte(continuation_byte, is_continuation_byte = True, is_start_byte = False, is_content_byte = True))
+            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteNotFirst(
+                continuation_byte
+            ))
 
         return UTF8000Int(parsed_bytes)
 
