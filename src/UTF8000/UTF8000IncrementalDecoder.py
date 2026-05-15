@@ -108,10 +108,6 @@ class UTF8000IncrementalDecoder:
             #
             return self._on_error_invalid_start_byte()
 
-        # The number of 1 bits in the start sequence is the number
-        # (at least so far) of UTF-8000 bytes that we are expecting.
-        n_bytes_expected = n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
-
         if idx_0 == 5:
             #
             # Treat two byte UTF-8 as a special case.
@@ -161,6 +157,10 @@ class UTF8000IncrementalDecoder:
             ))
 
             return UTF8000Int(parsed_bytes)
+
+        # The number of 1 bits in the start sequence is the number
+        # (at least so far) of UTF-8000 bytes that we are expecting.
+        n_bytes_expected = n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
 
         if idx_0 != -1:
             #
