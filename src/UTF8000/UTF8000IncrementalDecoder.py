@@ -131,13 +131,7 @@ class UTF8000IncrementalDecoder:
             if not start_byte & OVERLONG_MASK_2_BYTE:
                 self._on_error_overlong()
 
-            parsed_bytes.append(UTF8000Byte(
-                start_byte,
-                is_continuation_byte     = False,
-                is_start_byte            = True,
-                n_bits_content_total     = 5,
-                n_bits_content_mandatory = 4
-            ))
+            parsed_bytes.append(UTF8000Byte.TwoByteStartByte(start_byte))
 
             first_non_start_byte = yield from self._await_continuation_byte()
 

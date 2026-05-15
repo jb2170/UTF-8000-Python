@@ -248,6 +248,22 @@ class UTF8000Byte:
         )
 
     @classmethod
+    def TwoByteStartByte(cls, c: int):
+        """
+        Return a '0b110XXXXx' start byte for a two byte UTF-8 sequence.
+
+        `c` is the whole octet, including the upper '110' bits,
+        not just the quintet of content.
+        """
+        return cls(
+            c,
+            is_continuation_byte = False,
+            is_start_byte = True,
+            n_bits_content_total = 5,
+            n_bits_content_mandatory = 4
+        )
+
+    @classmethod
     def OnesFilledFirstStartByte(cls):
         """
         Return a '0b11111111' filled up first start byte.
