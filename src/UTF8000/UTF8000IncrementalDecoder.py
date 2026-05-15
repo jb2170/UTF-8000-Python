@@ -82,8 +82,6 @@ class UTF8000IncrementalDecoder:
     def _utf_8000_parse_single(self) -> Generator[None, None, UTF8000Int]:
         parsed_bytes: list[UTF8000Byte] = []
 
-        n_bytes_expected = 0
-
         start_byte = yield from self._await_byte()
 
         # Find the position of the highest 0 in the 8 bits of the byte.
@@ -102,13 +100,19 @@ class UTF8000IncrementalDecoder:
             parsed_bytes.append(UTF8000Byte.ASCII(start_byte))
 
             return UTF8000Int(parsed_bytes)
-        elif idx_0 == 6:
+
+        if idx_0 == 6:
             #
             # We have received a continuation byte when we were expecting a start byte.
             # This is an error.
             #
-            self._on_error_invalid_start_byte()
-        elif idx_0 == 5:
+            return self._on_error_invalid_start_byte()
+
+        # The number of 1 bits in the start sequence is the number
+        # (at least so far) of UTF-8000 bytes that we are expecting.
+        n_bytes_expected = n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
+
+        if idx_0 == 5:
             #
             # Treat two byte UTF-8 as a special case.
             #
@@ -138,13 +142,7 @@ class UTF8000IncrementalDecoder:
                 n_bits_content_total     = 5,
                 n_bits_content_mandatory = 4
             ))
-
-            n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
         else:
-            # The number of 1 bits in the start sequence is the number
-            # (at least so far) of UTF-8000 bytes that we are expecting.
-            n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
-
             if idx_0 != -1:
                 #
                 # The terminating 0 bit of the start sequence bits
