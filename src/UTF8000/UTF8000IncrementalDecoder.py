@@ -169,8 +169,6 @@ class UTF8000IncrementalDecoder:
             # Thus this is the first and final start byte.
             #
             is_final_start_byte_a_continuation_byte = False
-
-            final_start_byte_n_bits_content = idx_0
         else:
             #
             # The terminating 0 bit of the start sequence bits
@@ -206,7 +204,6 @@ class UTF8000IncrementalDecoder:
                     # was found in the continuation byte.
                     # Thus this is the final start byte.
                     #
-                    final_start_byte_n_bits_content = idx_0
                     break
                 else:
                     #
@@ -222,6 +219,7 @@ class UTF8000IncrementalDecoder:
                     #
                     parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
 
+        final_start_byte_n_bits_content = idx_0
         first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
 
         # Perform checking against overlong encodings.
