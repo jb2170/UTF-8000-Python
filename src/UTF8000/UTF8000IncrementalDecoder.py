@@ -161,143 +161,143 @@ class UTF8000IncrementalDecoder:
             ))
 
             return UTF8000Int(parsed_bytes)
+
+        if idx_0 != -1:
+            #
+            # The terminating 0 bit of the start sequence bits
+            # was found in the first byte.
+            # Thus this is the first and final start byte.
+            #
+            is_final_start_byte_a_continuation_byte = False
+
+            final_start_byte_n_bits_content = idx_0
         else:
-            if idx_0 != -1:
-                #
-                # The terminating 0 bit of the start sequence bits
-                # was found in the first byte.
-                # Thus this is the first and final start byte.
-                #
-                is_final_start_byte_a_continuation_byte = False
-
-                final_start_byte_n_bits_content = idx_0
-            else:
-                #
-                # The terminating 0 bit of the start sequence bits
-                # !was not! found in the first byte.
-                # This means that the byte is 0b11111111.
-                # This means that we are expecting *at least* 8 bytes of UTF-8000.
-                # We continue reading into the continuation bytes to find the
-                # terminating 0 bit.
-                # Thus this is the first but not the final start byte.
-                #
-                parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
-
-                is_final_start_byte_a_continuation_byte = True
-
-                # Multiple start bytes: the power of UTF-8000!
-                while True:
-                    start_byte = yield from self._await_continuation_byte()
-
-                    # Find the position of the highest 0 in the lowest 6 bits of the byte, aka
-                    # find the position of the highest 0 in the 6 bits that a
-                    # continuation byte contains. This zero allows us to tell
-                    # how many further continuation start bytes of UTF-8000
-                    # we are expecting.
-                    idx_0 = idx_start_seq_0(start_byte, N_BITS_CONTINUATION_BYTE)
-
-                    # The number of 1 bits in the start sequence is the number
-                    # of additional UTF-8000 bytes that we are expecting.
-                    n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_CONTINUATION_BYTE)
-
-                    if idx_0 != -1:
-                        #
-                        # The terminating 0 bit of the start sequence bits
-                        # was found in the continuation byte.
-                        # Thus this is the final start byte.
-                        #
-                        final_start_byte_n_bits_content = idx_0
-                        break
-                    else:
-                        #
-                        # The terminating 0 bit of the start sequence bits
-                        # !was not! found in the continuation byte.
-                        # This means that the byte is 0b10111111.
-                        # We continue reading into the continuation bytes
-                        # to find the terminating 0 bit.
-                        #
-                        # XXX We may wish to set a reasonable limit, say 256
-                        # bits in practice to prevent DOS attacks, even though
-                        # UTF-8000 is unlimited.
-                        #
-                        parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
-
-            first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
-
-            # Perform checking against overlong encodings.
-            # We forbid overlong encodings for two main reasons in my opinion:
             #
-            # 1: Security.
-            #    To make sure 0b11100000 0b10000000 0b10000000 0b10000000
-            #    can't be decoded as codepoint 0, the null 'byte', which speciously
-            #    may lead to people carelessly passing such bytes to `strcpy(3)`
-            #    and friends, which at best leads to segfaults...
+            # The terminating 0 bit of the start sequence bits
+            # !was not! found in the first byte.
+            # This means that the byte is 0b11111111.
+            # This means that we are expecting *at least* 8 bytes of UTF-8000.
+            # We continue reading into the continuation bytes to find the
+            # terminating 0 bit.
+            # Thus this is the first but not the final start byte.
             #
-            # 2: Uniqueness of encoding.
-            #    Every codepoint has one unique valid representation as UTF-8000 bytes.
-            #
-            # At this point `start_byte` is the final start byte.
-            #
-            mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[final_start_byte_n_bits_content]
+            parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
 
-            if not mask_non_start:
+            is_final_start_byte_a_continuation_byte = True
+
+            # Multiple start bytes: the power of UTF-8000!
+            while True:
+                start_byte = yield from self._await_continuation_byte()
+
+                # Find the position of the highest 0 in the lowest 6 bits of the byte, aka
+                # find the position of the highest 0 in the 6 bits that a
+                # continuation byte contains. This zero allows us to tell
+                # how many further continuation start bytes of UTF-8000
+                # we are expecting.
+                idx_0 = idx_start_seq_0(start_byte, N_BITS_CONTINUATION_BYTE)
+
+                # The number of 1 bits in the start sequence is the number
+                # of additional UTF-8000 bytes that we are expecting.
+                n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_CONTINUATION_BYTE)
+
+                if idx_0 != -1:
+                    #
+                    # The terminating 0 bit of the start sequence bits
+                    # was found in the continuation byte.
+                    # Thus this is the final start byte.
+                    #
+                    final_start_byte_n_bits_content = idx_0
+                    break
+                else:
+                    #
+                    # The terminating 0 bit of the start sequence bits
+                    # !was not! found in the continuation byte.
+                    # This means that the byte is 0b10111111.
+                    # We continue reading into the continuation bytes
+                    # to find the terminating 0 bit.
+                    #
+                    # XXX We may wish to set a reasonable limit, say 256
+                    # bits in practice to prevent DOS attacks, even though
+                    # UTF-8000 is unlimited.
+                    #
+                    parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
+
+        first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
+
+        # Perform checking against overlong encodings.
+        # We forbid overlong encodings for two main reasons in my opinion:
+        #
+        # 1: Security.
+        #    To make sure 0b11100000 0b10000000 0b10000000 0b10000000
+        #    can't be decoded as codepoint 0, the null 'byte', which speciously
+        #    may lead to people carelessly passing such bytes to `strcpy(3)`
+        #    and friends, which at best leads to segfaults...
+        #
+        # 2: Uniqueness of encoding.
+        #    Every codepoint has one unique valid representation as UTF-8000 bytes.
+        #
+        # At this point `start_byte` is the final start byte.
+        #
+        mask_start, mask_non_start = OVERLONG_MASKS_N_BYTE[final_start_byte_n_bits_content]
+
+        if not mask_non_start:
+            # All of the mandatory content bits are
+            # contained together in the <<final start byte<<.
+            #
+            # We can immediately check for overlong encoding, and we don't
+            # need to check the first non-start byte.
+            #
+            # Examples:
+            # UTF-8           Only possible for 2 byte UTF-8
+            # UTF-8000    ... 0b100IIIII (0b10yyyyyy ...)
+            #
+            if not start_byte & mask_start:
+                self._on_error_overlong()
+
+            first_non_start_byte = yield from self._await_continuation_byte()
+        else:
+            first_non_start_byte = yield from self._await_continuation_byte()
+
+            if not mask_start:
                 # All of the mandatory content bits are
-                # contained together in the <<final start byte<<.
-                #
-                # We can immediately check for overlong encoding, and we don't
-                # need to check the first non-start byte.
+                # contained together in the >>first non-start byte>>.
                 #
                 # Examples:
-                # UTF-8           Only possible for 2 byte UTF-8
-                # UTF-8000    ... 0b100IIIII (0b10yyyyyy ...)
                 #
-                if not start_byte & mask_start:
+                # UTF-8           Not possible for UTF-8
+                # UTF-8000        0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
+                # UTF-8000    ... 0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
+                #
+                if not first_non_start_byte & mask_non_start:
+                    self._on_error_overlong()
+            else:
+                # The mandatory content bits are
+                # straddled across two bytes,
+                # starting in the final start byte and continuing into
+                # the first non-start byte.
+                #
+                # Examples:
+                #
+                # UTF-8           0b11110QII (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
+                # UTF-8000    ... 0b10110III (0b10IIyyyy 0b10yyyyyy ...)
+                # UTF-8000    ... 0b10110III (0b10QQyyyy 0b10yyyyyy ...)
+                # UTF-8000    ... 0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
+                #
+                if not (start_byte & mask_start | first_non_start_byte & mask_non_start):
                     self._on_error_overlong()
 
-                first_non_start_byte = yield from self._await_continuation_byte()
-            else:
-                first_non_start_byte = yield from self._await_continuation_byte()
+        parsed_bytes.append(UTF8000Byte(
+            start_byte,
+            is_continuation_byte     = is_final_start_byte_a_continuation_byte,
+            is_start_byte            = True,
+            n_bits_content_total     = final_start_byte_n_bits_content,
+            n_bits_content_mandatory = final_start_byte_n_bits_content
+        ))
 
-                if not mask_start:
-                    # All of the mandatory content bits are
-                    # contained together in the >>first non-start byte>>.
-                    #
-                    # Examples:
-                    #
-                    # UTF-8           Not possible for UTF-8
-                    # UTF-8000        0b11111110 (0b10IIIIIy 0b10yyyyyy ...)
-                    # UTF-8000    ... 0b10111110 (0b10IIIIIy 0b10yyyyyy ...)
-                    #
-                    if not first_non_start_byte & mask_non_start:
-                        self._on_error_overlong()
-                else:
-                    # The mandatory content bits are
-                    # straddled across two bytes,
-                    # starting in the final start byte and continuing into
-                    # the first non-start byte.
-                    #
-                    # Examples:
-                    #
-                    # UTF-8           0b11110III (0b10IIyyyy 0b10yyyyyy 0b10yyyyyy)
-                    # UTF-8000    ... 0b10110III (0b10IIyyyy 0b10yyyyyy ...)
-                    # UTF-8000    ... 0b10110III (0b10QQyyyy 0b10yyyyyy ...)
-                    # UTF-8000    ... 0b10110QQQ (0b10IIyyyy 0b10yyyyyy ...)
-                    #
-                    if not (start_byte & mask_start | first_non_start_byte & mask_non_start):
-                        self._on_error_overlong()
-
-            parsed_bytes.append(UTF8000Byte(
-                start_byte,
-                is_continuation_byte     = is_final_start_byte_a_continuation_byte,
-                is_start_byte            = True,
-                n_bits_content_total     = final_start_byte_n_bits_content,
-                n_bits_content_mandatory = final_start_byte_n_bits_content
-            ))
-
-            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
-                first_non_start_byte,
-                n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
-            ))
+        parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
+            first_non_start_byte,
+            n_bits_content_mandatory = first_non_start_byte_n_bits_content_mandatory
+        ))
 
         while len(parsed_bytes) < n_bytes_expected:
             # Add the rest of the purely-content continuation bytes,
