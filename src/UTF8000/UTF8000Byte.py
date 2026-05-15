@@ -1,5 +1,5 @@
 # size_t counting num of bytes; this is the only machine limitation
-# big bittian ordered (128, 64, 32, 16, 8, 4, 2, 1)
+# little bittian ordered (1, 2, 4, 8, 16, 32, 64, 128)
 
 ZERO               = 0b00000000
 
@@ -30,6 +30,11 @@ OVERLONG_MASKS_N_BYTE = (
     (0b00001111, 0b00100000),
     (0b00011111, 0b00000000),
 )
+
+# How many bits in a first byte and continuation byte are
+# programmable with either start sequence bits, or content bits.
+N_BITS_FIRST_BYTE        = 8
+N_BITS_CONTINUATION_BYTE = 6
 
 # MIN = minimum
 # SUP = supremum
@@ -72,22 +77,41 @@ def byte_is_ascii(c: int) -> bool:
 def byte_is_continuation(c: int) -> bool:
     return c & CONTINUATION_PREFIX_MASK == CONTINUATION_PREFIX
 
-def byte_idx_0(c: int) -> int:
-    return next((
-        idx
-        for idx, bit in
-        enumerate(c & (1 << (8 - 1 - t)) for t in range(8))
-        if not bit
-    ), 8)
+def int_find_highest_zero(c: int, n_bits: int) -> int:
+    """
+    Find the highest 0 in the lowest `n_bits` of `c`.
 
-def byte_continuation_content_idx_0(c: int) -> int:
-    # could be made part of _byte_idx_0 but whatever
-    return next((
-        idx
-        for idx, bit in
-        enumerate(c & (1 << (6 - 1 - t)) for t in range(6))
-        if not bit
-    ), 6)
+    Returns -1 if a 0 bit is not found.
+    """
+    ret = n_bits - 1
+    mask = 1 << ret
+    for _ in range(n_bits):
+        if not mask & c:
+            break
+        mask >>= 1
+        ret -= 1
+    return ret
+
+def int_find_highest_one(c: int, n_bits: int) -> int:
+    """
+    Find the highest 1 in the lowest `n_bits` of `c`.
+
+    Returns -1 if a 1 bit is not found.
+    """
+    ret = n_bits - 1
+    mask = 1 << ret
+    for _ in range(n_bits):
+        if mask & c:
+            break
+        mask >>= 1
+        ret -= 1
+    return ret
+
+def idx_start_seq_0(c: int, n_bits: int) -> int:
+    return int_find_highest_zero(c, n_bits)
+
+def n_start_seq_ones(idx_0: int, n_bits: int) -> int:
+    return (n_bits - 1) - idx_0
 
 class UTF8000Byte:
     def __init__(self, c: int, *,

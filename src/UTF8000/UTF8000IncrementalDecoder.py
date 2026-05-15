@@ -1,6 +1,6 @@
 from typing import Generator
 
-from .UTF8000Byte import UTF8000Byte, byte_is_continuation, byte_idx_0, byte_continuation_content_idx_0, OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
+from .UTF8000Byte import UTF8000Byte, byte_is_continuation, idx_start_seq_0, n_start_seq_ones, N_BITS_FIRST_BYTE, N_BITS_CONTINUATION_BYTE, OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
 from .UTF8000Int import UTF8000Int
 
 class UTF8000IncrementalDecoder:
@@ -82,10 +82,16 @@ class UTF8000IncrementalDecoder:
     def _utf_8000_parse_single(self) -> Generator[None, None, UTF8000Int]:
         parsed_bytes: list[UTF8000Byte] = []
 
-        start_byte = yield from self._await_byte()
-        idx_0 = byte_idx_0(start_byte)
+        n_bytes_expected = 0
 
-        if idx_0 == 0:
+        start_byte = yield from self._await_byte()
+
+        # Find the position of the highest 0 in the 8 bits of the byte.
+        # This zero allows us to tell how many bytes of UTF-8(000) we
+        # are expecting.
+        idx_0 = idx_start_seq_0(start_byte, N_BITS_FIRST_BYTE)
+
+        if idx_0 == 7:
             #
             # Treat ASCII as a special case.
             # This makes it easier for us to write the decoder, and allows a 'fast path'.
@@ -96,9 +102,13 @@ class UTF8000IncrementalDecoder:
             parsed_bytes.append(UTF8000Byte.ASCII(start_byte))
 
             return UTF8000Int(parsed_bytes)
-        elif idx_0 == 1:
+        elif idx_0 == 6:
+            #
+            # We have received a continuation byte when we were expecting a start byte.
+            # This is an error.
+            #
             self._on_error_invalid_start_byte()
-        elif idx_0 == 2:
+        elif idx_0 == 5:
             #
             # Treat two byte UTF-8 as a special case.
             #
@@ -129,31 +139,71 @@ class UTF8000IncrementalDecoder:
                 n_bits_content_mandatory = 4
             ))
 
-            n_bytes_expected = idx_0
+            n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
         else:
-            n_bytes_expected = idx_0
-            # when idx_0 == 8, this is 8 *so far!*
+            # The number of 1 bits in the start sequence is the number
+            # (at least so far) of UTF-8000 bytes that we are expecting.
+            n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_FIRST_BYTE)
 
-            if idx_0 != 8:
+            if idx_0 != -1:
+                #
+                # The terminating 0 bit of the start sequence bits
+                # was found in the first byte.
+                # Thus this is the first and final start byte.
+                #
                 is_final_start_byte_a_continuation_byte = False
-                final_start_byte_n_bits_content = 7 - idx_0
+
+                final_start_byte_n_bits_content = idx_0
             else:
+                #
+                # The terminating 0 bit of the start sequence bits
+                # !was not! found in the first byte.
+                # This means that the byte is 0b11111111.
+                # This means that we are expecting *at least* 8 bytes of UTF-8000.
+                # We continue reading into the continuation bytes to find the
+                # terminating 0 bit.
+                # Thus this is the first but not the final start byte.
+                #
                 parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
 
                 is_final_start_byte_a_continuation_byte = True
 
-                # multiple start bytes, the power of UTF-8000!
+                # Multiple start bytes: the power of UTF-8000!
                 while True:
                     start_byte = yield from self._await_continuation_byte()
-                    idx_0_content = byte_continuation_content_idx_0(start_byte)
-                    n_bytes_expected += idx_0_content
 
-                    if idx_0_content != 6:
+                    # Find the position of the highest 0 in the lowest 6 bits of the byte, aka
+                    # find the position of the highest 0 in the 6 bits that a
+                    # continuation byte contains. This zero allows us to tell
+                    # how many further continuation start bytes of UTF-8000
+                    # we are expecting.
+                    idx_0 = idx_start_seq_0(start_byte, N_BITS_CONTINUATION_BYTE)
+
+                    # The number of 1 bits in the start sequence is the number
+                    # of additional UTF-8000 bytes that we are expecting.
+                    n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_CONTINUATION_BYTE)
+
+                    if idx_0 != -1:
+                        #
+                        # The terminating 0 bit of the start sequence bits
+                        # was found in the continuation byte.
+                        # Thus this is the final start byte.
+                        #
+                        final_start_byte_n_bits_content = idx_0
                         break
                     else:
+                        #
+                        # The terminating 0 bit of the start sequence bits
+                        # !was not! found in the continuation byte.
+                        # This means that the byte is 0b10111111.
+                        # We continue reading into the continuation bytes
+                        # to find the terminating 0 bit.
+                        #
+                        # XXX We may wish to set a reasonable limit, say 256
+                        # bits in practice to prevent DOS attacks, even though
+                        # UTF-8000 is unlimited.
+                        #
                         parsed_bytes.append(UTF8000Byte.OnesFilledContinuationStartByte())
-
-                final_start_byte_n_bits_content = 5 - idx_0_content
 
             first_non_start_byte_n_bits_content_mandatory = 5 - final_start_byte_n_bits_content
 
