@@ -200,6 +200,8 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
         n_bytes_pure_content_and_final_start = n_utf_8000_bytes_needed
     else:
+        is_final_start_byte_a_continuation_byte = True
+
         first_byte = UTF8000Byte.OnesFilledFirstStartByte()
 
         ret_ints.append(first_byte)
@@ -210,8 +212,6 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
         for _ in range(n_filled_continuation_start_bytes):
             ret_ints.append(UTF8000Byte.OnesFilledContinuationStartByte())
-
-        is_final_start_byte_a_continuation_byte = True
 
         final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
         final_start_byte = CONTINUATION_PREFIX | final_start_byte_start_bits

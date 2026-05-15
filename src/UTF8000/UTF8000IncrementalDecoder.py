@@ -179,9 +179,9 @@ class UTF8000IncrementalDecoder:
             # terminating 0 bit.
             # Thus this is the first but not the final start byte.
             #
-            parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
-
             is_final_start_byte_a_continuation_byte = True
+
+            parsed_bytes.append(UTF8000Byte.OnesFilledFirstStartByte())
 
             # Multiple start bytes: the power of UTF-8000!
             while True:
