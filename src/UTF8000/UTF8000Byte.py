@@ -93,14 +93,12 @@ class UTF8000Byte:
     def __init__(self, c: int, *,
         is_continuation_byte:     bool,
         is_start_byte:            bool,
-        is_content_byte:          bool, # XXX maybe remove this in favour of following two
         n_bits_content_total:     int,
         n_bits_content_mandatory: int,
     ) -> None:
         self.c = c
         self.is_start_byte            = is_start_byte
         self.is_continuation_byte     = is_continuation_byte
-        self.is_content_byte          = is_content_byte
         self.n_bits_content_total     = n_bits_content_total
         self.n_bits_content_mandatory = n_bits_content_mandatory
 
@@ -203,6 +201,10 @@ class UTF8000Byte:
         return self.n_bits_content_total == 7
 
     @property
+    def is_content_byte(self) -> bool:
+        return self.n_bits_content_total > 0
+
+    @property
     def content(self) -> int:
         content_mask = fill_n_bits_shifted_by_m(self.n_bits_content_total, 0)
 
@@ -217,7 +219,6 @@ class UTF8000Byte:
             c,
             is_continuation_byte = False,
             is_start_byte = True,
-            is_content_byte = True,
             n_bits_content_total = 7,
             n_bits_content_mandatory = 0
         )
@@ -231,7 +232,6 @@ class UTF8000Byte:
             FIRST_BYTE_FULL,
             is_continuation_byte = False,
             is_start_byte = True,
-            is_content_byte = False,
             n_bits_content_total = 0,
             n_bits_content_mandatory = 0
         )
@@ -245,7 +245,6 @@ class UTF8000Byte:
             CONTINUATION_FILLED,
             is_continuation_byte = True,
             is_start_byte = True,
-            is_content_byte = False,
             n_bits_content_total = 0,
             n_bits_content_mandatory = 0
         )
@@ -265,7 +264,6 @@ class UTF8000Byte:
             c,
             is_continuation_byte = True,
             is_start_byte = False,
-            is_content_byte = True,
             n_bits_content_total = 6,
             n_bits_content_mandatory = n_bits_content_mandatory
         )
@@ -285,7 +283,6 @@ class UTF8000Byte:
             c,
             is_continuation_byte = True,
             is_start_byte = False,
-            is_content_byte = True,
             n_bits_content_total = 6,
             n_bits_content_mandatory = 0
         )

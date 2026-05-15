@@ -125,7 +125,6 @@ class UTF8000IncrementalDecoder:
                 start_byte,
                 is_continuation_byte     = False,
                 is_start_byte            = True,
-                is_content_byte          = True,
                 n_bits_content_total     = 5,
                 n_bits_content_mandatory = 4
             ))
@@ -224,7 +223,6 @@ class UTF8000IncrementalDecoder:
                 start_byte,
                 is_continuation_byte     = is_final_start_byte_a_continuation_byte,
                 is_start_byte            = True,
-                is_content_byte          = final_start_byte_n_bits_content > 0,
                 n_bits_content_total     = final_start_byte_n_bits_content,
                 n_bits_content_mandatory = final_start_byte_n_bits_content
             ))

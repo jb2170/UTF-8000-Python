@@ -195,12 +195,6 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
 
     if n_utf_8000_bytes_needed < 8:
         is_final_start_byte_a_continuation_byte = False
-        is_final_start_byte_a_content_byte = n_utf_8000_bytes_needed < 7
-        # For single start byte UTF-8000,
-        # if there are less than 7 UTF-8000 bytes needed in total,
-        # then there are less than 7 ones in the start sequence,
-        # thus there are less than 8 bits in the start sequence,
-        # thus there is space in the final start byte for content.
 
         final_start_byte = fill_n_bits_shifted_by_m(n_utf_8000_bytes_needed, 8 - n_utf_8000_bytes_needed)
 
@@ -218,12 +212,6 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
             ret_ints.append(UTF8000Byte.OnesFilledContinuationStartByte())
 
         is_final_start_byte_a_continuation_byte = True
-        is_final_start_byte_a_content_byte = n_ones_in_final_start_byte < 5
-        # For multi start byte UTF-8000,
-        # if   there are less than 5 ones in the start sequence of the final start byte,
-        # then there are less than 6 bits in the start sequence of the final start byte,
-        # thus there are less than 8 bits used by the '10' continuation prefix and the start sequence bits,
-        # thus there is space in the final start byte for content.
 
         final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
         final_start_byte = CONTINUATION_PREFIX | final_start_byte_start_bits
@@ -289,7 +277,6 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         final_start_byte,
         is_continuation_byte     = is_final_start_byte_a_continuation_byte,
         is_start_byte            = True,
-        is_content_byte          = is_final_start_byte_a_content_byte,
         n_bits_content_total     = final_start_byte_n_bits_content_total,
         n_bits_content_mandatory = final_start_byte_n_bits_content_mandatory
     ))
