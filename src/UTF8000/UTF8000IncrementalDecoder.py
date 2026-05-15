@@ -142,6 +142,25 @@ class UTF8000IncrementalDecoder:
                 n_bits_content_total     = 5,
                 n_bits_content_mandatory = 4
             ))
+
+            first_non_start_byte = yield from self._await_continuation_byte()
+
+            # No overlong checking needed for the second byte of two byte UTF-8.
+            # We choose to fetch the continuation byte here instead of dropping
+            # through to the end of the function for two reasons:
+            #
+            # Firstly this is a `ContinuationNonStartByteFirst`
+            # not a `ContinuationNonStartByteNotFirst`
+            #
+            # Secondly by returning earlier we remove a layer of indentation
+            # for the 'main' UTF-8000 case, making it more readable.
+            #
+            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
+                first_non_start_byte,
+                n_bits_content_mandatory = 0
+            ))
+
+            return UTF8000Int(parsed_bytes)
         else:
             if idx_0 != -1:
                 #
