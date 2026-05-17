@@ -2,11 +2,13 @@
 UTF-8000 CLI
 
 - Info about UTF-8000 bytes
+- stdin-stdout encoder
 """
 
 import argparse
 
 from .info   import main_info
+from .encode import main_encode
 
 def get_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description = __doc__)
@@ -28,6 +30,15 @@ def get_cli_args() -> argparse.Namespace:
         help = "The integer to encode. It must be either a decimal integer, or hex in the form U+(...X)X"
     )
 
+    parser_encode = action.add_parser("encode",
+        help = (h := "Read codepoint integers from stdin and output UTF-8000 bytes to stdout"),
+        description = ".\n\n".join((
+            h,
+            "Inputted integers must be separated by newlines",
+            "Inputted integers must be either a decimal integer, or hex in the form U+(...X)X"
+        )),
+    )
+
     args = parser.parse_args()
 
     return args
@@ -37,4 +48,5 @@ def main() -> None:
 
     {
         "info":   main_info,
+        "encode": main_encode,
     }[args.action](args)
