@@ -3,12 +3,14 @@ UTF-8000 CLI
 
 - Info about UTF-8000 bytes
 - stdin-stdout encoder
+- stdin-stdout decoder
 """
 
 import argparse
 
 from .info   import main_info
 from .encode import main_encode
+from .decode import main_decode
 
 def get_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description = __doc__)
@@ -39,6 +41,14 @@ def get_cli_args() -> argparse.Namespace:
         )),
     )
 
+    parser_decode = action.add_parser("decode",
+        help = (h := "Read UTF-8000 bytes from stdin and output U+(...X)XXXX strings to stdout"),
+        description = ".\n\n".join((
+            h,
+            "Output is separated by newlines",
+        )),
+    )
+
     args = parser.parse_args()
 
     return args
@@ -49,4 +59,5 @@ def main() -> None:
     {
         "info":   main_info,
         "encode": main_encode,
+        "decode": main_decode,
     }[args.action](args)
