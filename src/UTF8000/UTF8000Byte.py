@@ -78,6 +78,9 @@ class UTF8000Byte:
         self.n_bits_content_total     = n_bits_content_total
         self.n_bits_content_mandatory = n_bits_content_mandatory
 
+    def __int__(self) -> int:
+        return self.c
+
     def __str__(self) -> str:
         return f"0b{self.c:08b}"
 
