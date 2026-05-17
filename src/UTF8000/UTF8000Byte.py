@@ -1,3 +1,5 @@
+from . import color
+
 # size_t counting num of bytes; this is the only machine limitation
 # little bittian ordered (1, 2, 4, 8, 16, 32, 64, 128)
 
@@ -187,17 +189,20 @@ class UTF8000Byte:
 
         str_continuation_prefix = self._format_bit_field(
             n_bits_continuation_prefix, 6,
-            color = "\x1b[34m", do_color = do_color
+            color = color.CSI_BOLD + color.CSI_FG_CYAN, do_color = do_color
         )
         str_start_sequence_bits = self._format_bit_field(
             n_bits_start_sequence, n_bits_content_total,
-            color = "\x1b[35m", do_color = do_color
+            color = color.CSI_BOLD + color.CSI_FG_MAGENTA, do_color = do_color
         )
         str_content_mandatory = self._format_bit_field(
             n_bits_content_mandatory, n_bits_content_optional,
-            color = "\x1b[1m", do_color = do_color
+            color = color.CSI_BOLD + color.CSI_FG_GREEN, do_color = do_color
         )
-        str_content_optional = self._format_bit_field(n_bits_content_optional, 0)
+        str_content_optional = self._format_bit_field(
+            n_bits_content_optional, 0,
+            color = color.CSI_FG_GREEN, do_color = do_color
+        )
 
         return f"{base_prefix}{str_continuation_prefix}{str_start_sequence_bits}{str_content_mandatory}{str_content_optional}"
 
