@@ -20,8 +20,22 @@ class UTF8000IncrementalDecoder:
         self._bytes_buffer += utf_8000_bytes
         self._wakeup()
 
+    def close(self) -> None:
+        """
+        Close the parser.
+
+        Raises EOFError if we are part way through parsing a UTF-8000 sequence.
+
+        Otherwise returns `None`.
+        """
+        self._generator.close()
+
     def _wakeup(self) -> None:
         self._generator.send(None)
+
+    def _await_should_parse_again(self) -> Generator[None, None, None]:
+        while not self._bytes_buffer:
+            yield
 
     def _await_bytes(self, n_bytes: int) -> Generator[None, None, bytes]:
         while len(self._bytes_buffer) < n_bytes:
@@ -127,4 +141,18 @@ class UTF8000IncrementalDecoder:
 
     def _utf_8000_parse_forever(self) -> Generator[None, None, None]:
         while True:
-            self._results.append((yield from self._utf_8000_parse_single()))
+            try:
+                yield from self._await_should_parse_again()
+                # Park the generator in this 'parking lot' so that
+                # if `close()` is called on the generator at this point
+                # it's not an error, whereas if we are in the middle of
+                # parsing a UTF-8000 sequence below that *should* be an
+                # EOFError if `close()` is called early.
+            except GeneratorExit:
+                return
+            try:
+                x = yield from self._utf_8000_parse_single()
+            except GeneratorExit as e:
+                raise EOFError("Partially decoded UTF-8000 sequence didn't finish") from e
+            else:
+                self._results.append(x)
