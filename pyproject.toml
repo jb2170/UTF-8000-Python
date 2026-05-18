@@ -9,6 +9,9 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/jb2170/UTF-8000/"
 
+[project.scripts]
+utf-8000 = "UTF8000.CLI:main"
+
 [tool.setuptools.dynamic]
 version = {attr = "UTF8000.__version__"}
 
