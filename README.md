@@ -4,20 +4,92 @@ Unlimited UTF-8!
 
 ASCII ⊆ UTF-8 ⊆ UTF-8000
 
-## TLDR
+- UTF-8000 is the correct way to expand UTF-8 indefinitely.
+- This repository contains a Python implementation of UTF-8000.
+- See [UTF-8000-Website](https://github.com/UTF-8000/UTF-8000-Website) for the full writeup.
+- UTF-8000 is in no way endorsed by or representative of the [Unicode Consortium](https://home.unicode.org/). This is a standalone project.
 
-An example 10-byte (51 content bit) UTF-8000 encoded integer is given below
+## Installing
+
+Available on PyPI as [UTF-8000](https://pypi.org/project/UTF-8000/)
+
+Recommended install using [pipx](https://github.com/pypa/pipx):
 
 ```
-# 10-byte UTF-8000
-11111111 10110xxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+$ pipx install UTF-8000
 ```
 
-Observe the completely filled first start byte, and the `0`-terminated start sequence of `1`s continues into the second byte, which maintains its continuation byte prefix. The remaining 51 free bits of encodable information are denoted by `x`s.
+provides
+
+```
+utf-8000(1)
+```
+
+with subcommands
+
+```
+utf-8000 info
+utf-8000 encode
+utf-8000 decode
+```
+
+## TLDR Examples
+
+### Using `utf-8000 info`
+
+![utf-8000-info-example.png 11111111 10111111 10110011 10011110 10101011 10011011 10111011 10101111 ...](./docs/utf-8000-info-example.png)
+
+### Color key:
+
+- Bright Magenta: start sequence bits `111...110`
+- Bright Cyan: continuation byte prefix `10`
+- Bright Green: mandatory content bits
+- Green: content bits
+
+Observe the first byte completely filled with 1s from the start sequence bits. The start sequence bits continue on into the continuation bytes, the first also being completely filled. The third byte contains the end of the start sequence bits, that is the two 1s and the terminating 0. The five mandatory content bits are in bright green, and the rest of the content is in green. Notice that at least one of the 'mandatory content bits' is a 1 to avoid an overlong encoding.
+
+### Using `utf-8000 encode`
+
+```
+$ echo 'U+DEADBEEFBADF00D' | utf-8000 encode | hexdump -C
+00000000  ff bc b7 aa b6 be bb bb  ab 9f 80 8d              |............|
+0000000c
+```
+
+### Using `utf-8000 decode`
+
+Using the bytes from the encode example above
+
+```
+$ echo -ne '\xff\xbc\xb7\xaa\xb6\xbe\xbb\xbb\xab\x9f\x80\x8d' | utf-8000 decode
+U+DEADBEEFBADF00D
+```
+
+Or another example
+
+```
+$ echo 'שלום' | utf-8000 decode
+U+05E9
+U+05DC
+U+05D5
+U+05DD
+U+000A
+```
+
+## Package Contents
+
+- encode.py
+  - `encode(x: int) -> bytes`: Encode an unsigned integer in UTF-8000 and return the bytes
+  - `fancy_encode(x: int) -> tuple[UTF8000Byte]`: Encode an unsigned integer in UTF-8000 and return 'fancy' `UTF8000Byte`s, useful for education and inspection.
+- decode.py
+  - `UTF8000IncrementalDecoder`: An incremental decoder class that can be fed bytes, and can be iterated over, yielding `UTF8000Int`s when full byte sequences have been supplied and decoded.
+- UTF8000Byte.py
+  - `UTF8000Byte`: a 'fancy' byte wrapper around UTF-8000 bytes that
+  - Various constants and utility functions
 
 ## The Quick Rundown
 
-UTF-8 is the beautiful encoding scheme of Unicode Codepoints (read 'integers') that perfectly extends 7-bit ASCII embedded within the lower bits of 8-bit bytes (`0xxxxxxx`) into a multi-byte encoding, by recognising that one can turn the leading `0` of ASCII into a prefix-free code.
+UTF-8 is the beautiful encoding scheme of Unicode Codepoints (read 'unsigned integers') that perfectly extends 7-bit ASCII embedded within the lower bits of 8-bit bytes (`0xxxxxxx`) into a multi-byte encoding, by recognising that one can turn the leading `0` of ASCII into a prefix-free code.
 
 | prefix | example-byte | usage |
 | -      | -            | -                                          |
@@ -67,7 +139,7 @@ We could even expand past 4-byte sequences in the obvious way, all the way up to
 11111110 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
 ```
 
-The first byte is now completely filled with the start sequence. How could we implement 8-byte UTF-8? One conjecture may be to just swap the final `0` in the start byte for a `1`, and add another continuation byte on. This would gain us another 6 content bits in the last continuation byte, however this short-sighted approach closes off any natural avenues to a UTF-8 beyond 8 bytes. Those *6* bits gained also breaks a pattern; Observe that for each continuation byte added in non-ASCII UTF-8 sequences, eg from 2-byte to 3-byte, or 3-byte to 4-byte, or 4-byte to 5-byte etc, we gain 6 bits from the continuation byte, but lose one bit in the start byte, meaning we only gain *5* content bits each time we add on another continuation byte.
+The first byte is now completely filled with the start sequence. How could we implement 8-byte UTF-8? One conjecture may be to just swap the final `0` in the start byte for a `1`, and add another continuation byte on. This would gain us another 6 content bits in the final continuation byte, however this short-sighted approach closes off any natural avenues to a UTF-8 beyond 8 bytes. Those *6* bits gained also breaks a pattern; Observe that for each continuation byte added in non-ASCII UTF-8 sequences, eg from 2-byte to 3-byte, or 3-byte to 4-byte, or 4-byte to 5-byte etc, we gain 6 bits from the continuation byte, but lose one bit in the start byte, meaning we only gain *5* content bits each time we add on another continuation byte.
 
 Therefore lest we introduce more special cases, we stick with our `0`-terminated start sequence and let it roll over into the first continuation byte. 8-byte 'UTF-8' is given as follows:
 
