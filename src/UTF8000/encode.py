@@ -1,5 +1,10 @@
 from .UTF8000Int import UTF8000Int
-from .UTF8000Byte import UTF8000Byte, FIRST_BYTE_FULL, CONTINUATION_FILLED, CONTINUATION_PREFIX, CONTINUATION_CONTENT_MASK, ceil_div, fill_n_bits_shifted_by_m
+from .UTF8000Byte import (
+    UTF8000Byte,
+    FIRST_BYTE_FULL,
+    CONTINUATION_PREFIX, CONTINUATION_CONTENT_MASK, CONTINUATION_FILLED,
+    ceil_div, fill_n_bits_shifted_by_m
+)
 
 def encode(x: int, signed: bool = False) -> bytes:
     """

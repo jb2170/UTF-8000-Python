@@ -1,6 +1,11 @@
 from typing import Generator
 
-from .UTF8000Byte import UTF8000Byte, byte_is_continuation, idx_start_seq_0, n_start_seq_ones, N_BITS_FIRST_BYTE, N_BITS_CONTINUATION_BYTE, OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
+from .UTF8000Byte import (
+    UTF8000Byte,
+    byte_is_continuation, idx_start_seq_0, n_start_seq_ones,
+    N_BITS_FIRST_BYTE, N_BITS_CONTINUATION_BYTE,
+    OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
+)
 from .UTF8000Int import UTF8000Int
 
 class UTF8000IncrementalDecoder:
