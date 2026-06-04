@@ -33,10 +33,13 @@ OVERLONG_MASKS_N_BYTE = (
     (0b00011111, 0b00000000),
 )
 
-# How many bits in a first byte and continuation byte are
-# programmable with either start sequence bits, or content bits.
-N_BITS_FIRST_BYTE        = 8
-N_BITS_CONTINUATION_BYTE = 6
+# How many bits are in a byte. Defining this makes the number 8
+# less of a 'magic number'.
+N_BITS_IN_BYTE = 8
+# How many bits in a non-ASCII byte are programmable with either
+# start bits or content bits.
+# i.e. everything but the self-synchronization prefix.
+N_BITS_IN_BYTE_PROGRAMMABLE = 6
 
 # MIN = minimum
 # SUP = supremum
