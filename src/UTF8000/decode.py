@@ -2,7 +2,7 @@ from typing import Generator
 
 from .UTF8000Byte import (
     UTF8000Byte,
-    byte_is_continuation, idx_highest_zero, n_start_seq_ones,
+    byte_is_continuation, idx_highest_zero, n_start_bits_ones,
     N_BITS_IN_BYTE, N_BITS_IN_BYTE_PROGRAMMABLE,
     OVERLONG_MASK_2_BYTE, OVERLONG_MASKS_N_BYTE
 )
@@ -160,7 +160,7 @@ class UTF8000IncrementalDecoder:
         # Two plus the number of 1 bits in the start bits is the number
         # (at least so far) of UTF-8000 bytes that we are expecting.
         n_bytes_expected = 2
-        n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_IN_BYTE_PROGRAMMABLE)
+        n_bytes_expected += n_start_bits_ones(idx_0, N_BITS_IN_BYTE_PROGRAMMABLE)
 
         if idx_0 != -1:
             #
@@ -194,9 +194,9 @@ class UTF8000IncrementalDecoder:
                 # we are expecting.
                 idx_0 = idx_highest_zero(start_byte, N_BITS_IN_BYTE_PROGRAMMABLE)
 
-                # The number of 1 bits in the start sequence is the number
+                # The number of 1 bits in the start bits is the number
                 # of additional UTF-8000 bytes that we are expecting.
-                n_bytes_expected += n_start_seq_ones(idx_0, N_BITS_IN_BYTE_PROGRAMMABLE)
+                n_bytes_expected += n_start_bits_ones(idx_0, N_BITS_IN_BYTE_PROGRAMMABLE)
 
                 if idx_0 != -1:
                     #
