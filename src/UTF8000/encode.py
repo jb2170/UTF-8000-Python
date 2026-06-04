@@ -3,6 +3,7 @@ from .UTF8000Byte import (
     UTF8000Byte,
     MULTIBYTE_SELF_SYNC_BITS_CONTINUATION,
     MULTIBYTE_PROGRAMMABLE_MASK,
+    MULTIBYTE_PROGRAMMABLE_N_BITS,
     MULTIBYTE_FILLED_FIRST,
     MULTIBYTE_FILLED_CONTINUATION,
     ceil_div, fill_n_bits_shifted_by_m
@@ -35,11 +36,11 @@ def encode(x: int, signed: bool = False) -> bytes:
     while y > 0:
         final_6_bits = y & MULTIBYTE_PROGRAMMABLE_MASK
         contents.insert(0, final_6_bits)
-        y >>= 6
+        y >>= MULTIBYTE_PROGRAMMABLE_N_BITS
 
     n_bits_content_highest_six = contents[0].bit_length() # this feels cheeky to use
 
-    n_bits_content_total = n_bits_content_highest_six + 6 * (len(contents) - 1)
+    n_bits_content_total = n_bits_content_highest_six + MULTIBYTE_PROGRAMMABLE_N_BITS * (len(contents) - 1)
 
     n_utf_8000_bytes_needed = ceil_div(n_bits_content_total - 1, 5)
 
@@ -54,12 +55,12 @@ def encode(x: int, signed: bool = False) -> bytes:
 
         n_remaining_start_ones = n_utf_8000_bytes_needed - 8
 
-        n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, 6)
+        n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, MULTIBYTE_PROGRAMMABLE_N_BITS)
 
         for _ in range(n_filled_continuation_start_bytes):
             ret_ints.append(MULTIBYTE_FILLED_CONTINUATION)
 
-        final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
+        final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, MULTIBYTE_PROGRAMMABLE_N_BITS - n_ones_in_final_start_byte)
         final_start_byte = MULTIBYTE_SELF_SYNC_BITS_CONTINUATION | final_start_byte_start_bits
 
         n_full_start_bytes = 1 + n_filled_continuation_start_bytes
@@ -114,11 +115,11 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         # reading on.
         final_6_bits = y & MULTIBYTE_PROGRAMMABLE_MASK
         contents.insert(0, final_6_bits)
-        y >>= 6
+        y >>= MULTIBYTE_PROGRAMMABLE_N_BITS
 
     n_bits_content_highest_six = contents[0].bit_length()
 
-    n_bits_content_total = n_bits_content_highest_six + 6 * (len(contents) - 1)
+    n_bits_content_total = n_bits_content_highest_six + MULTIBYTE_PROGRAMMABLE_N_BITS * (len(contents) - 1)
     # Sextets below the 'uppermost' sextet contribute 6 bits of content
     # regardless of how many 1s or 0s they contain and wherein they
     # contain them. The uppermost sextet determines where to stop.
@@ -160,13 +161,13 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         # We'll deal with the terminating 0 bit later, and don't include it
         # in this count.
 
-        n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, 6)
+        n_filled_continuation_start_bytes, n_ones_in_final_start_byte = divmod(n_remaining_start_ones, MULTIBYTE_PROGRAMMABLE_N_BITS)
 
         for _ in range(n_filled_continuation_start_bytes):
             # Add any filled-up continuation start bytes (0b10111111).
             ret_ints.append(UTF8000Byte.OnesFilledContinuationStartByte())
 
-        final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, 6 - n_ones_in_final_start_byte)
+        final_start_byte_start_bits = fill_n_bits_shifted_by_m(n_ones_in_final_start_byte, MULTIBYTE_PROGRAMMABLE_N_BITS - n_ones_in_final_start_byte)
         final_start_byte = MULTIBYTE_SELF_SYNC_BITS_CONTINUATION | final_start_byte_start_bits
         # Since 0 <= `n_ones_in_final_start_byte` <= 5, the terminating 0 bit
         # of the start sequence is contained in `final_start_byte`.
@@ -225,7 +226,7 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         #
         # That should be enough of a sequence to spot the pattern, right?
         #
-        first_non_start_byte_n_bits_content_mandatory = divmod(n_utf_8000_bytes_needed - 8, 6)[1]
+        first_non_start_byte_n_bits_content_mandatory = divmod(n_utf_8000_bytes_needed - 8, MULTIBYTE_PROGRAMMABLE_N_BITS)[1]
         final_start_byte_n_bits_content_mandatory     = 5 - first_non_start_byte_n_bits_content_mandatory
         final_start_byte_n_bits_content_total         = final_start_byte_n_bits_content_mandatory
         # XXX see decoder on how we can remove this divmod and just use `n_ones_in_final_start_byte`
