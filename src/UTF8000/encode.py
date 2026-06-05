@@ -9,16 +9,13 @@ from .UTF8000Byte import (
     ceil_div, fill_n_bits_shifted_by_m
 )
 
-def encode(x: int, signed: bool = False) -> bytes:
+def encode_unsigned(x: int) -> bytes:
     """
-    Encode an integer `x` into UTF-8000 bytes.
+    Encode an unsigned integer `x` into UTF-8000 bytes.
     """
 
-    # See `fancy_encode` for comments.
+    # See `fancy_encode_unsigned` for comments.
     # There's no point repeating them here.
-
-    if signed:
-        raise NotImplementedError
 
     if x < 0:
         raise ValueError("Cannot encode negative number in unsigned mode")
@@ -78,17 +75,10 @@ def encode(x: int, signed: bool = False) -> bytes:
 
     return bytes(ret_ints)
 
-def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
+def fancy_encode_unsigned(x: int) -> tuple[UTF8000Byte]:
     """
-    Encode an integer `x` into a tuple of `UTF8000Byte`s.
+    Encode an unsigned integer `x` into a tuple of `UTF8000Byte`s.
     """
-
-    if signed:
-        # XXX TODO Implement signed behavior,
-        # picking out bits until we reach -1
-        # and ensuring unambiguous storage of +ve and -ve
-        # in prefix-padded two's complement form
-        raise NotImplementedError
 
     if x < 0:
         raise ValueError("Cannot encode negative number in unsigned mode")
@@ -305,3 +295,27 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         ))
 
     return tuple(ret_ints)
+
+def encode(x: int, signed: bool = False) -> bytes:
+    """
+    Encode an integer `x` into UTF-8000 bytes.
+    """
+
+    if signed:
+        raise NotImplementedError
+    else:
+        return encode_unsigned(x)
+
+def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
+    """
+    Encode an integer `x` into a tuple of `UTF8000Byte`s.
+    """
+
+    if signed:
+        # XXX TODO Implement signed behavior,
+        # picking out bits until we reach -1
+        # and ensuring unambiguous storage of +ve and -ve
+        # in prefix-padded two's complement form
+        raise NotImplementedError
+    else:
+        return fancy_encode_unsigned(x)
