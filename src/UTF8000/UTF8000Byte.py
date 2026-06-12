@@ -185,8 +185,9 @@ class UTF8000Byte:
         format_spec_args = format_spec.split(",")
         # primitive but enough
 
-        do_base_prefix = "#"     in format_spec_args
-        do_color       = "color" in format_spec_args
+        do_base_prefix = "#"      in format_spec_args
+        do_color       = "color"  in format_spec_args
+        do_signed_mode = "signed" in format_spec_args
 
         if 'x' in format_spec_args:
             # Return hex digits.

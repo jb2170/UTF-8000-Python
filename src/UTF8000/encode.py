@@ -1,12 +1,15 @@
 from .UTF8000Int import UTF8000Int
 from .UTF8000Byte import (
     UTF8000Byte,
+    ASCII_PROGRAMMABLE_MASK,
     MULTIBYTE_SELF_SYNC_BITS_CONTINUATION,
     MULTIBYTE_PROGRAMMABLE_MASK,
     MULTIBYTE_PROGRAMMABLE_N_BITS,
     MULTIBYTE_FILLED_FIRST,
     MULTIBYTE_FILLED_CONTINUATION,
-    ceil_div, fill_n_bits_shifted_by_m
+    ceil_div,
+    fill_n_bits_shifted_by_m,
+    int_find_highest_zero
 )
 
 def encode_unsigned(x: int) -> bytes:
@@ -74,6 +77,62 @@ def encode_unsigned(x: int) -> bytes:
         ret_ints.append(non_start_byte)
 
     return bytes(ret_ints)
+
+def encode_signed(x: int) -> bytes:
+    """
+    Encode a signed integer `x` into STF-8
+    """
+
+    if x < 0:
+        return _encode_signed_negative(x)
+    else:
+        return _encode_signed_non_negative(x)
+
+def _encode_signed_non_negative(x: int) -> bytes:
+    ret_ints: list[int] = []
+
+    if x < 0x40:
+        ret_ints.append(x)
+
+        return bytes(ret_ints)
+
+    contents: list[int] = []
+    y: int = x
+
+    while y > 0:
+        final_6_bits = y & MULTIBYTE_PROGRAMMABLE_MASK
+        contents.insert(0, final_6_bits)
+        y >>= MULTIBYTE_PROGRAMMABLE_N_BITS
+
+    print(contents)
+
+def _encode_signed_negative(x: int) -> bytes:
+    ret_ints: list[int] = []
+
+    if not x < -0x40:
+        ret_ints.append(ASCII_PROGRAMMABLE_MASK & x)
+
+        return bytes(ret_ints)
+
+    contents: list[int] = []
+    y: int = x
+
+    while y < -1:
+        final_6_bits = y & MULTIBYTE_PROGRAMMABLE_MASK
+        contents.insert(0, final_6_bits)
+        y >>= MULTIBYTE_PROGRAMMABLE_N_BITS
+
+    n_bits_content_highest_six = 1 + int_find_highest_zero(contents[0], MULTIBYTE_PROGRAMMABLE_N_BITS)
+
+    n_bits_content_needed = (0
+        + 1 # signed encoding needs at least one '1' prefix bit
+        + n_bits_content_highest_six
+        + MULTIBYTE_PROGRAMMABLE_N_BITS * (len(contents) - 1)
+    )
+
+    print(n_bits_content_needed)
+
+    return contents
 
 def fancy_encode_unsigned(x: int) -> tuple[UTF8000Byte]:
     """
@@ -302,7 +361,24 @@ def encode(x: int, signed: bool = False) -> bytes:
     """
 
     if signed:
-        raise NotImplementedError
+        # return encode_signed(x)
+        if not x < -0x40:
+            return encode_unsigned(ASCII_PROGRAMMABLE_MASK & x)
+
+        y = x
+
+        size = 0
+        while y < -1:
+            y >>= 1
+            size += 1
+        size += 1 # 'sign' bit
+        k = ceil_div(size - 1, 5)
+        m = 1 << (5 * k + 1)
+        z = m + x
+
+        print(f"{k = }")
+
+        return encode_unsigned(z)
     else:
         return encode_unsigned(x)
 
@@ -316,6 +392,25 @@ def fancy_encode(x: int, signed: bool = False) -> tuple[UTF8000Byte]:
         # picking out bits until we reach -1
         # and ensuring unambiguous storage of +ve and -ve
         # in prefix-padded two's complement form
-        raise NotImplementedError
+
+        if not x < -0x40:
+            return fancy_encode_unsigned(ASCII_PROGRAMMABLE_MASK & x)
+
+        y = x
+
+        size = 0
+        while y < -1:
+            y >>= 1
+            size += 1
+        size += 1 # 'sign' bit
+        k = ceil_div(size - 1, 5)
+        m = 1 << (5 * k + 1)
+        z = m + x
+
+        # overlong mechanism: track the 'sign bit' not the final start bit '0'
+        # otherwise the num of mandatory content bits in final start byte would be 4 3 2 1 0 0
+        # whereas tracking the sign bit we have 5 4 3 2 1 0
+
+        return fancy_encode_unsigned(z)
     else:
         return fancy_encode_unsigned(x)
