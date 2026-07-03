@@ -14,6 +14,14 @@ from .decode import main_decode
 
 def get_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description = __doc__)
+
+    parser.add_argument("-s", "--signed", action = "store_true",
+        help = f"Treat content bits as storing signed integers using zigzag encoding"
+    )
+    # XXX TODO
+    # Implement signed behavior using the zigzag function.
+    # Really this could be a layer outside `encode`.
+
     action = parser.add_subparsers(title = "action", dest = "action", required = True)
 
     parser_info = action.add_parser("info",

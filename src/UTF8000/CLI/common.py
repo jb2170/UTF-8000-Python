@@ -44,3 +44,19 @@ def format_codepoint(n: int) -> str:
     """
 
     return f"{U_PLUS_PREFIX}{n:04X}"
+
+
+def zigzag(m: int) -> int:
+    """
+    ZigZag encoding
+    """
+    m <<= 1
+    if m < 0:
+        m = ~m
+    return m
+
+def zigzag_inverse(n: int) -> int:
+    if n & 1:
+        n = ~n
+    n >>= 1
+    return n

@@ -10,7 +10,9 @@ from UTF8000.UTF8000Byte import (
 
 from .common import (
     yes_no_is_stdout_tty,
-    parse_codepoint, format_codepoint
+    parse_codepoint, format_codepoint,
+    zigzag,
+    zigzag_inverse,
 )
 
 def main_info(args: argparse.Namespace) -> None:
@@ -20,6 +22,9 @@ def main_info(args: argparse.Namespace) -> None:
     n_str:     str  = args.n_str
 
     n = parse_codepoint(n_str)
+
+    if args.signed:
+        n = zigzag(n)
 
     # Encode integer `n` in UTF-8000
     encoded = encode(n)
