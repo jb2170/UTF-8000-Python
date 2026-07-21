@@ -87,6 +87,14 @@ class UTF8000IncrementalDecoder:
         # XXX TODO 101: read all following continuation bytes to skip them
         self._on_error("Overlong encoding")
 
+    def _await_continuation_mandatory_content_0(self) -> Generator[None, None, int]:
+        ret = yield from self._await_byte()
+        if ret < 0b10000000:
+            self._on_error_invalid_continuation_byte()
+        if ret < 0b11000000:
+            return ret
+        self._on_error_invalid_continuation_byte()
+
     def _utf_8000_parse_single(self) -> Generator[None, None, UTF8000Int]:
         parsed_bytes: list[UTF8000Byte] = []
 
@@ -97,68 +105,53 @@ class UTF8000IncrementalDecoder:
         # are expecting.
         idx_0 = idx_highest_zero(start_byte, N_BITS_IN_BYTE)
 
-        if idx_0 == 7:
-            #
-            # Treat ASCII as a special case.
-            # This makes it easier for us to write the decoder, and allows a 'fast path'.
-            # ASCII has no (need for) overlong checking, and by returning early
-            # before the overlong checking code we skip code that checks for multiple
-            # start bytes, and further continuation bytes.
-            #
+        if start_byte < 0b10000000:
+            # 1
             parsed_bytes.append(UTF8000Byte.ASCII(start_byte))
 
             return UTF8000Int(parsed_bytes)
 
-        if idx_0 == 6:
-            #
-            # We have received a continuation byte when we were expecting a start byte.
-            # This is an error.
-            #
+        if start_byte < 0b11000000:
+            # cont
             return self._on_error_invalid_start_byte()
 
-        if idx_0 == 5:
-            #
-            # Treat two byte UTF-8 as a special case.
-            #
-            # Two byte UTF-8 has only 4 mandatory content bits to check
-            # against overlong encoding, unlike all other UTF-8000 code units that
-            # have 5 to check. This is because the jump from ASCII to UTF-8 means
-            # we jump from 7 bits of content to 11, a gain of 4 bits of content,
-            # whereas with every next additional continuation byte jumping from
-            # k-byte UTF-8(000) to k+1-byte UTF-8(000) we gain 5 bits
-            # of content; +6 bits from the continuation byte, -1 from extending
-            # the start bits by 1.
-            #
-            # Two byte UTF-8 has all 4 mandatory content bits in one byte,
-            # the start byte, unlike all other UTF-8000 code units
-            # which may have them straddled across two bytes.
-            #
-            # Fun fact: It is for this reason why you will never see the bytes
-            #           0xC0 or 0xC1 in a valid UTF-8(000) stream, like anywhere!
-            #
-            if not start_byte & OVERLONG_MASK_2_BYTE:
-                self._on_error_overlong()
+        if start_byte < 0b11000010:
+            # 0xC0 0xC1
+            self._on_error_overlong() # 2 special 0xC0 0xC1
 
+        if start_byte < 0b11100000:
+            # 2
             parsed_bytes.append(UTF8000Byte.TwoByteStartByte(start_byte))
 
-            first_non_start_byte = yield from self._await_continuation_byte()
+            first_non_start_byte = yield from self._await_continuation_mandatory_content_0()
 
-            # No overlong checking needed for the second byte of two byte UTF-8.
-            # We choose to fetch the continuation byte here instead of dropping
-            # through to the end of the function for two reasons:
-            #
-            # Firstly this is a `ContinuationNonStartByteFirst`
-            # not a `ContinuationNonStartByteNotFirst`
-            #
-            # Secondly by returning earlier we remove a layer of indentation
-            # for the 'main' UTF-8000 case, making it more readable.
-            #
             parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
                 first_non_start_byte,
                 n_bits_content_mandatory = 0
             ))
 
             return UTF8000Int(parsed_bytes)
+
+        if start_byte < 0b11100001:
+            # 3: no mandatory content in first byte
+            pass
+
+        if start_byte < 0b11101101:
+            # 3: mandatory content in first byte
+            first_non_start_byte = yield from self._await_continuation_mandatory_content_0()
+
+        if start_byte < 0b11101110:
+            # 3: mandatory content in first byte
+            # second byte could be forbidden surrogate
+            pass
+
+        if start_byte < 0b11110000:
+            # 3: mandatory content in first byte
+            first_non_start_byte = yield from self._await_continuation_mandatory_content_0()
+
+        if start_byte < 0b11110001:
+            # 4: no mandatory content in first byte: check two in first non-start
+            pass
 
         # Two plus the number of 1 bits in the start bits is the number
         # (at least so far) of UTF-8000 bytes that we are expecting.
