@@ -1,5 +1,7 @@
 from typing import Generator
 
+import codecs
+
 from .UTF8000Byte import (
     UTF8000Byte,
     N_BITS_IN_BYTE,
@@ -10,6 +12,9 @@ from .UTF8000Byte import (
     idx_highest_zero, n_start_bits_ones,
 )
 from .UTF8000Int import UTF8000Int
+
+class Sneed(codecs.BufferedIncrementalDecoder):
+    pass
 
 class UTF8000IncrementalDecoder:
     def __init__(self) -> None:

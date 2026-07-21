@@ -57,6 +57,7 @@ def main_info(args: argparse.Namespace) -> None:
             line_parts.append("(ASCII)")
     else:
         line_parts.append("UTF-8000")
+    # XXX why is this hard coded instead of summing over bytes???
     if n < UTF_8_1_SUP:
         n_bits = 7
         n_bits_mandatory = 0
