@@ -6,13 +6,18 @@ from .UTF8000Byte import (
     MULTIBYTE_PROGRAMMABLE_N_BITS,
     OVERLONG_MASK_2_BYTE,
     OVERLONG_MASKS_MULTIBYTE,
+    SURROGATE_BYTE_FIRST,
+    SURROGATE_BYTE_SECOND_HIGH_MIN,
+    SURROGATE_BYTE_SECOND_LOW_MIN,
     byte_is_continuation,
     idx_highest_zero, n_start_bits_ones,
 )
 from .UTF8000Int import UTF8000Int
 
 class UTF8000IncrementalDecoder:
-    def __init__(self) -> None:
+    def __init__(self, *, allow_surrogates: bool = True) -> None:
+        self._allow_surrogates = allow_surrogates
+
         self._results:      list[UTF8000Int] = []
         self._bytes_buffer: bytes            = b""
 
@@ -87,6 +92,12 @@ class UTF8000IncrementalDecoder:
         # XXX TODO 101: read all following continuation bytes to skip them
         self._on_error("Overlong encoding")
 
+    def _on_error_surrogate_high(self) -> None:
+        self._on_error("High surrogates are forbidden")
+
+    def _on_error_surrogate_low(self) -> None:
+        self._on_error("Low surrogates are forbidden")
+
     def _utf_8000_parse_single(self) -> Generator[None, None, UTF8000Int]:
         parsed_bytes: list[UTF8000Byte] = []
 
@@ -156,6 +167,60 @@ class UTF8000IncrementalDecoder:
             parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteFirst(
                 first_non_start_byte,
                 n_bits_content_mandatory = 0
+            ))
+
+            return UTF8000Int(parsed_bytes)
+
+        if idx_0 == 4:
+            #
+            # Treat three byte UTF-8 as a special case.
+            #
+            # Three byte UTF-8 contains the 'surrogate' range of codepoints,
+            # 'high' surrogates U+D800 (ed a0 80) to U+DBFF (ed af bf) and
+            # 'low'  surrogates U+DC00 (ed b0 80) to U+DFFF (ed bf bf).
+            #
+            # These are valid *codepoints*, that is we can talk about
+            # eg U+8000, and use them in logical Python strings eg "\ud800",
+            # but they are not valid *Unicode scalar values*, that is we are
+            # forbidden from encoding them as bytes.
+            # They are the only codepoints that are not Unicode scalar values.
+            #
+            # They are forbidden from being encoded in UTF-8, even though UTF-8
+            # technically could encode them, because UTF-16 is *incapable*
+            # of encoding them, and the Unicode Consortium wishes that
+            # UTF-8, UTF-16, UTF-32 are all capable of encoding the same
+            # range of codepoints.
+            #
+            first_non_start_byte = yield from self._await_continuation_byte()
+
+            if (
+                start_byte == SURROGATE_BYTE_FIRST
+                and not first_non_start_byte < SURROGATE_BYTE_SECOND_HIGH_MIN
+            ):
+                if first_non_start_byte < SURROGATE_BYTE_SECOND_LOW_MIN:
+                    # High Surrogate U+D800 to U+DBFF
+                    if self._allow_surrogates:
+                        pass
+                    else:
+                        self._on_error_surrogate_high()
+                else:
+                    # Low  Surrogate U+DC00 to U+DFFF
+                    if self._allow_surrogates:
+                        pass
+                    else:
+                        self._on_error_surrogate_low()
+            else:
+                mask_start, mask_non_start = OVERLONG_MASKS_MULTIBYTE[idx_0]
+                if not (start_byte & mask_start | first_non_start_byte & mask_non_start):
+                    self._on_error_overlong()
+
+            parsed_bytes.append(UTF8000Byte.ThreeByteFirstByte(start_byte))
+            parsed_bytes.append(UTF8000Byte.ThreeByteSecondByte(first_non_start_byte))
+
+            continuation_byte = yield from self._await_continuation_byte()
+
+            parsed_bytes.append(UTF8000Byte.ContinuationNonStartByteNotFirst(
+                continuation_byte
             ))
 
             return UTF8000Int(parsed_bytes)

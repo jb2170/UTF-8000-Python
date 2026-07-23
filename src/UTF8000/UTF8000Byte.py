@@ -63,6 +63,14 @@ OVERLONG_MASKS_MULTIBYTE = (
     (0b00011111, 0b00000000),
 )
 
+### Surrogate Range Checking
+
+SURROGATE_BYTE_FIRST           = 0b11101101
+SURROGATE_BYTE_SECOND_HIGH_MIN = 0b10100000
+SURROGATE_BYTE_SECOND_HIGH_SUP = 0b10110000
+SURROGATE_BYTE_SECOND_LOW_MIN  = 0b10110000
+SURROGATE_BYTE_SECOND_LOW_SUP  = 0b11000000
+
 ### Unicode Ranges
 
 # MIN = minimum
@@ -310,6 +318,35 @@ class UTF8000Byte:
             is_start_byte = True,
             n_bits_content_total = 5,
             n_bits_content_mandatory = 4
+        )
+
+    @classmethod
+    def ThreeByteFirstByte(cls, c: int):
+        """
+        Return a '0b1110XXXX' first byte for a three-byte UTF-8 code unit.
+
+        `c` is the whole octet, including the upper '1110' bits,
+        not just the quartet of content.
+        """
+        return cls(
+            c,
+            is_continuation_byte = False,
+            is_start_byte = True,
+            n_bits_content_total = 4,
+            n_bits_content_mandatory = 4
+        )
+
+    @classmethod
+    def ThreeByteSecondByte(cls, c: int):
+        """
+        Return a '0b10Xxxxxx' second byte for a three-byte UTF-8 code unit.
+
+        `c` is the whole octet, including the upper '10' bits,
+        not just the sextet of content.
+        """
+        return cls.ContinuationNonStartByteFirst(
+            c,
+            n_bits_content_mandatory = 1
         )
 
     @classmethod
